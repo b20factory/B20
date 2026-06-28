@@ -136,7 +136,8 @@ launch \\
         <Link className="link" href="/explore">explore</Link>
         <Link className="link" href="/docs">docs</Link>
         <Link className="link" href="/app">launch</Link>
-        <a className="link" href="https://x.com" target="_blank" rel="noreferrer">X</a>
+        <a className="link" href="https://x.com/B20Factory_" target="_blank" rel="noreferrer">X</a>
+        <a className="link" href="https://github.com/b20factory/B20" target="_blank" rel="noreferrer">github</a>
         <Link className="link" href="/feedback">feedback</Link>
         <span className={`ml-auto chip ${IS_TESTNET ? "border-warn/30 text-warn/80" : "border-beryl/30 text-beryl/80"}`}>{IS_TESTNET ? "base sepolia · testnet" : "base · mainnet"}</span>
       </footer>
