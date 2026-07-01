@@ -46,7 +46,7 @@ export default function LaunchForm() {
   return (
     <div className="grid lg:grid-cols-2 gap-6">
       <div className="card">
-        <div className="h-sec mb-5"><span className="text-beryl">configure token</span></div>
+        <div className="h-sec mb-5">Configure token</div>
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -148,34 +148,34 @@ export default function LaunchForm() {
             </p>
           </div>
 
-          <button className="btn-primary w-full py-2.5 text-base" disabled={!isConnected || !valid || busy || imgUploading} onClick={async () => { try { const tok = await launch({ ...f, ethUsd }); router.push(`/token/${tok}`); } catch {} }}>
-            {!isConnected ? "connect wallet to launch" : busy ? "deploying…" : imgUploading ? "uploading image…" : "push it"}
+          <button className="btn-primary w-full py-3 text-base" disabled={!isConnected || !valid || busy || imgUploading} onClick={async () => { try { const tok = await launch({ ...f, ethUsd }); router.push(`/token/${tok}`); } catch {} }}>
+            {!isConnected ? "Connect wallet to launch" : busy ? "Deploying…" : imgUploading ? "Uploading image…" : "Launch token"}
           </button>
           <p className="text-[11px] text-muted leading-relaxed">
-            deploys via the 0xB20f… precompile · admin-less · 80% pool / 20% vested
+            Deploys via the 0xB20f… precompile · admin-less · 80% pool / 20% vested
           </p>
         </div>
       </div>
 
       {/* live deploy log */}
-      <div className="term overflow-hidden self-start">
-        <div className="term-bar"><span className="dot bg-bad/70" /><span className="dot bg-warn/70" /><span className="dot bg-beryl/70" /><span className="ml-2 text-xs text-muted">deploy.log</span>{busy && <span className="ml-auto text-[11px] text-beryl animate-flicker">● running</span>}</div>
+      <div className="console font-mono self-start">
+        <div className="console-bar"><span className="console-dot" /><span className="console-dot" /><span className="console-dot" /><span className="ml-2 text-xs">deploy.log</span>{busy && <span className="ml-auto text-[11px] text-con-accent">running</span>}</div>
         <div className="p-4 text-[13px] leading-7 min-h-[300px]">
-          {steps.length === 0 && <div className="text-muted">› waiting for launch…<span className="cursor ml-1" /></div>}
+          {steps.length === 0 && <div className="text-con-muted">waiting for launch…<span className="cursor ml-2" /></div>}
           {steps.map((s) => (
-            <div key={s.id} className={s.status === "ok" ? "text-beryl-glow" : s.status === "err" ? "text-bad" : s.status === "run" ? "text-text" : "text-muted/70"}>
-              <span className="inline-block w-4">{s.status === "ok" ? "✓" : s.status === "err" ? "✕" : s.status === "run" ? "▸" : "·"}</span>
+            <div key={s.id} className={s.status === "ok" ? "text-con-ok" : s.status === "err" ? "text-con-err" : s.status === "run" ? "text-con-text" : "text-con-muted/70"}>
+              <span className="inline-block w-4">{s.status === "ok" ? "✓" : s.status === "err" ? "✕" : s.status === "run" ? "›" : "·"}</span>
               {s.label}
-              {s.note && <span className="text-muted"> — {s.note}</span>}
+              {s.note && <span className="text-con-muted"> — {s.note}</span>}
             </div>
           ))}
           {token && (
-            <div className="mt-4 pt-3 hairline space-y-2">
-              <div className="text-beryl-glow">✓ token is live</div>
-              <div className="text-[11px] text-muted break-all">CA {token}</div>
+            <div className="mt-4 pt-3 border-t border-con-line space-y-2">
+              <div className="text-con-ok">✓ token is live</div>
+              <div className="text-[11px] text-con-muted break-all">CA {token}</div>
               <div className="flex flex-wrap gap-2">
-                <button className="chip-on" onClick={() => router.push(`/token/${token}`)}>open token · chart + buy/sell</button>
-                <a className="chip hover:border-beryl-dim/50" href={`${EXPLORER}/token/${token}`} target="_blank" rel="noreferrer">explorer ↗</a>
+                <button className="rounded-full border border-con-accent/40 bg-con-accent/10 px-3 py-1 text-xs text-con-accent hover:bg-con-accent/20 transition-colors" onClick={() => router.push(`/token/${token}`)}>Open token page</button>
+                <a className="rounded-full border border-con-line px-3 py-1 text-xs text-con-muted hover:text-con-text transition-colors" href={`${EXPLORER}/token/${token}`} target="_blank" rel="noreferrer">Explorer ↗</a>
               </div>
             </div>
           )}

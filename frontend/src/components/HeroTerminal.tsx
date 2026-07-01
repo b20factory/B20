@@ -50,14 +50,14 @@ export default function HeroTerminal() {
   }, []);
 
   const color = (t: string) =>
-    t === "ok" ? "text-beryl-glow" : t === "out" ? "text-text/80" : t === "dim" ? "text-muted" : "text-text";
+    t === "ok" ? "text-con-ok" : t === "out" ? "text-con-text/80" : t === "dim" ? "text-con-muted" : "text-con-text";
 
   return (
-    <div className="term overflow-hidden">
-      <div className="term-bar">
-        <span className="dot bg-bad/70" /><span className="dot bg-warn/70" /><span className="dot bg-beryl/70" />
-        <span className="ml-2 text-xs text-muted">B20factory — ~/launch</span>
-        <span className="ml-auto text-[11px] text-muted">base beryl</span>
+    <div className="console font-mono">
+      <div className="console-bar">
+        <span className="console-dot" /><span className="console-dot" /><span className="console-dot" />
+        <span className="ml-2 text-xs">b20factory — ~/launch</span>
+        <span className="ml-auto text-[11px]">base beryl</span>
       </div>
       <div className="p-4 text-[13px] leading-6 min-h-[230px]">
         {lines.map((l, idx) => (
@@ -66,9 +66,9 @@ export default function HeroTerminal() {
           </div>
         ))}
         {i < SCRIPT.length && SCRIPT[i]?.t === "in" && (
-          <div className="text-text"><span className="prompt">{typed}</span><span className="cursor" /></div>
+          <div className="text-con-text"><span className="prompt">{typed}</span><span className="cursor" /></div>
         )}
-        {i >= SCRIPT.length && <div className="text-text"><span className="prompt" /><span className="cursor" /></div>}
+        {i >= SCRIPT.length && <div className="text-con-text"><span className="prompt" /><span className="cursor" /></div>}
       </div>
     </div>
   );

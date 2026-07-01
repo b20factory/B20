@@ -1,5 +1,42 @@
 # B20factory contracts — security audit
 
+## Mainnet-readiness re-verification (2026-07-01)
+
+Fresh full manual pass of the current source (B20TokenFactory, B20FeeHook,
+B20FeeSplitter, B20Vesting, B20SwapRouter) + Slither re-run, ahead of the clean
+mainnet redeploy. Result: **no new critical/high/medium findings**; all prior fixes
+(H-1, M-1, M-2, L-1, L-2, L-3, I-1, I-2) confirmed still present in source. Slither
+raw hits are the same benign classes previously triaged (guarded reentrancy,
+by-design ETH pushes, intentional tick math).
+
+Branding: `OriginSwapRouter` renamed to `B20SwapRouter` (new file, identical logic,
+zero ABI change); OriginPad/Recom interface names + comments in B20 files neutralized.
+`deployB20.ts` now deploys `B20SwapRouter`.
+
+New informational notes (no action required for mainnet):
+- N-4 (Info): `retrySeed()` covers direct launches only; a bonding-path (`deployToken`)
+  seeding failure has no retry and would strand the pool slice. The product only uses
+  the direct `launch()` path, so exposure is nil unless the NFT-bonding flow is revived.
+- N-5 (Info): if the owner sets `distBps` summing to exactly 10000, `poolAmount` is 0
+  and seeding fails silently (token launches poolless). Owner-only configuration.
+- N-6 (Info): in `B20FeeSplitter._distribute`, if `creator == platform` AND that address
+  has a parked `pending` balance, the double subtraction can underflow and brick
+  `distribute()` until `withdraw()` is called. Only reachable for the owner's own
+  launches where creator == treasury; public launches unaffected.
+- N-7 (Trust, restated): owner can re-point `setRouter` for FUTURE launches' splitters
+  (buyback path). Immutable per token once launched; owner-trust only, same class as N-1.
+
+Mainnet checklist:
+1. Deploy fresh stack from the clean deployer via `deployB20.ts --network base`
+   (hook address re-mined for flags 0x20CC on the mainnet CREATE2 factory).
+2. `setFactory` on the hook, `setRouter` on the factory (B20SwapRouter address).
+3. CANARY LAUNCH: the B20 precompile on mainnet is probe-verified (getB20Address)
+   but no mainnet `createB20` launch has been executed yet — do one real launch +
+   buy + sell round-trip before promoting the site to mainnet.
+4. Verify hook/factory/launchpad/router on Basescan (the B20 token itself is a
+   precompile-minted native asset and does not verify like a normal contract).
+
+
 Scope: `B20TokenFactory.sol`, `B20FeeHook.sol`, `B20FeeSplitter.sol`, `B20Vesting.sol`
 Method: manual review + Slither 0.11.5 (Base Sepolia deployment).
 Date: 2026-06-26

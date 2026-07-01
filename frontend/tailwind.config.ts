@@ -1,40 +1,61 @@
 import type { Config } from "tailwindcss";
 
-// B20factory terminal theme. Beryl is a blue-green mineral, so the accent is an
-// aquamarine/beryl cyan, paired with Base blue, on a near-black IDE background.
+// B20factory — professional Base-ecosystem theme.
+// Light "paper" surfaces + Base blue actions + beryl (the mineral) as the brand
+// accent. The only dark surface is the console (a real product feature), which
+// gets its own `con` palette so text stays readable there.
 const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
-        bg: "#06090a",          // terminal black
-        panel: "#0b1012",       // slightly lifted panel
-        panel2: "#0f1619",      // card
-        line: "#16211f",        // hairline borders
+        bg: "#FBFBF9",          // warm paper page background
+        panel: "#FFFFFF",       // cards
+        panel2: "#F4F6F5",      // subtle inset surfaces
+        line: "#E6EAE8",        // hairline borders
         beryl: {
-          DEFAULT: "#3df0d4",   // beryl / aquamarine accent
-          dim: "#1c8b7e",
-          glow: "#5ffbe6",
+          DEFAULT: "#0D9488",   // beryl teal, readable on white
+          dim: "#8BBBB4",       // soft borders / secondary accents
+          glow: "#0A7C71",      // hover / emphasis (darker, no glow)
         },
-        base: "#0052ff",        // Base blue
-        muted: "#5b6b6a",
-        text: "#cfe9e4",
-        warn: "#ffcc66",
-        bad: "#ff6b6b",
+        brand: "#0052FF",       // Base blue — primary actions, matches the B20 icon
+        brandDark: "#0040CC",
+        muted: "#667572",
+        text: "#171E20",
+        warn: "#B45309",
+        bad: "#D92D20",
+        // console (dark code/terminal panels only)
+        con: {
+          bg: "#0E1413",
+          bar: "#121A19",
+          line: "#20302D",
+          text: "#D7E2DE",
+          muted: "#748582",
+          accent: "#2FD4BC",
+          ok: "#4ADE80",
+          err: "#F87171",
+          warn: "#FBBF24",
+        },
       },
       fontFamily: {
+        sans: ["var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       boxShadow: {
-        glow: "0 0 0 1px rgba(61,240,212,.18), 0 0 24px -6px rgba(61,240,212,.25)",
+        card: "0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06)",
+        lift: "0 2px 4px rgba(16,24,40,0.05), 0 12px 24px -8px rgba(16,24,40,0.12)",
+        console: "0 4px 8px rgba(6,12,10,0.24), 0 24px 48px -16px rgba(6,12,10,0.36)",
       },
       keyframes: {
-        blink: { "0%,49%": { opacity: "1" }, "50%,100%": { opacity: "0" } },
-        flicker: { "0%,100%": { opacity: "1" }, "92%": { opacity: ".85" } },
+        "fade-up": {
+          from: { opacity: "0", transform: "translateY(10px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        caret: { "0%,60%": { opacity: "1" }, "61%,100%": { opacity: "0.15" } },
       },
       animation: {
-        blink: "blink 1s steps(1) infinite",
-        flicker: "flicker 6s linear infinite",
+        "fade-up": "fade-up 0.6s cubic-bezier(0.22,1,0.36,1) both",
+        caret: "caret 1.1s ease-in-out infinite",
       },
     },
   },

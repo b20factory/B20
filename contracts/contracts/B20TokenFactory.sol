@@ -47,11 +47,11 @@ interface IB20Token {
 }
 
 // Used to fetch a collection's launch config at bonding time.
-interface IRecomNFTForDecay {
+interface ICollectionLike {
     function launchpad() external view returns (address);
 }
 
-interface IRecomLaunchpadForDecay {
+interface ILaunchpadConfig {
     function collectionDecay(address collection) external view returns (uint256);
     function collectionFeeType(address collection) external view returns (uint8);
     function collectionStartMc(address collection) external view returns (uint256);
@@ -60,11 +60,10 @@ interface IRecomLaunchpadForDecay {
 
 /**
  * @title B20TokenFactory
- * @notice B20factory's per-collection token deployer. Drop-in replacement for
- *         OriginPad's RecomTokenFactory (identical `deployToken` signature so the
- *         existing RecomNFT bonding flow calls it unchanged), but the token is a
- *         NATIVE B20 ASSET minted via the Base Beryl factory precompile instead of
- *         an EVM ERC-20.
+ * @notice B20factory's token deployer. Supports a direct one-transaction `launch()`
+ *         and a legacy collection-bonding `deployToken` path. The token is a NATIVE
+ *         B20 ASSET minted via the Base Beryl factory precompile instead of an EVM
+ *         ERC-20.
  *
  *         Anti-honeypot design (the whole reason for B20factory):
  *           - token is created ADMIN-LESS (initialAdmin = address(0)): no one can
@@ -95,7 +94,7 @@ contract B20TokenFactory is Ownable, ReentrancyGuard, IUnlockCallback {
     address public immutable feeHook;
     // USDC for the optional USDC-paired pool (0 = ETH-only). Kept for parity; ETH-only in practice.
     address public immutable usdc;
-    // OriginSwapRouter (kept for parity; B20FeeSplitter pays ETH so unused). 0 = off.
+    // B20SwapRouter used by splitters for the creator token-buyback. 0 = off.
     address public router;
 
     uint24 public constant LP_FEE = 0; // no LP fee; all trade fee via hook
@@ -484,12 +483,12 @@ contract B20TokenFactory is Ownable, ReentrancyGuard, IUnlockCallback {
     function _collectionConfig(address collection)
         internal view returns (uint256 dec, uint8 feeType, uint256 startMc, bool pairUSDC)
     {
-        try IRecomNFTForDecay(collection).launchpad() returns (address lp) {
+        try ICollectionLike(collection).launchpad() returns (address lp) {
             if (lp != address(0)) {
-                try IRecomLaunchpadForDecay(lp).collectionDecay(collection) returns (uint256 d) { dec = d; } catch {}
-                try IRecomLaunchpadForDecay(lp).collectionFeeType(collection) returns (uint8 f) { feeType = f; } catch {}
-                try IRecomLaunchpadForDecay(lp).collectionStartMc(collection) returns (uint256 m) { startMc = m; } catch {}
-                try IRecomLaunchpadForDecay(lp).collectionPairUSDC(collection) returns (bool u) { pairUSDC = u; } catch {}
+                try ILaunchpadConfig(lp).collectionDecay(collection) returns (uint256 d) { dec = d; } catch {}
+                try ILaunchpadConfig(lp).collectionFeeType(collection) returns (uint8 f) { feeType = f; } catch {}
+                try ILaunchpadConfig(lp).collectionStartMc(collection) returns (uint256 m) { startMc = m; } catch {}
+                try ILaunchpadConfig(lp).collectionPairUSDC(collection) returns (bool u) { pairUSDC = u; } catch {}
             }
         } catch {}
     }

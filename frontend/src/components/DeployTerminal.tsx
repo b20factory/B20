@@ -255,19 +255,19 @@ export default function DeployTerminal() {
   const placeholder = busy ? "deploying…" : wiz ? `${wiz.step}…  (or \`cancel\`)` : 'launch  ·  or  launch --name "Beryl Cat" --symbol BCAT';
 
   return (
-    <div className="term overflow-hidden">
-      <div className="term-bar">
-        <span className="dot bg-bad/70" /><span className="dot bg-warn/70" /><span className="dot bg-beryl/70" />
-        <span className="ml-2 text-xs text-muted">beryl — interactive agent</span>
-        <span className="ml-auto text-[11px] text-muted">{wiz ? "● guiding" : isConnected ? "● connected" : "○ offline"}</span>
+    <div className="console font-mono">
+      <div className="console-bar">
+        <span className="console-dot" /><span className="console-dot" /><span className="console-dot" />
+        <span className="ml-2 text-xs">beryl — interactive launch</span>
+        <span className="ml-auto text-[11px]">{wiz ? "guiding" : isConnected ? "connected" : "offline"}</span>
       </div>
 
       {/* quick-action toolbar */}
-      <div className="px-3 py-2 border-b border-line flex gap-1.5 flex-wrap">
+      <div className="px-3 py-2 border-b border-con-line flex gap-1.5 flex-wrap">
         {TOOLBAR.map((item) => (
           <button
             key={item.label}
-            className="chip hover:border-beryl-dim/50 hover:text-beryl transition-colors text-[11px] px-2 py-0.5"
+            className="rounded-full border border-con-line px-2.5 py-0.5 text-[11px] text-con-muted hover:text-con-accent hover:border-con-accent/40 transition-colors"
             onClick={() => handleToolbar(item)}
             disabled={busy}
           >
@@ -279,17 +279,17 @@ export default function DeployTerminal() {
       <div className="p-4 text-[13px] leading-6 h-[380px] overflow-y-auto" onClick={() => inputRef.current?.focus()}>
         {lines.map((l, i) => (
           <div key={i} className={
-            l.t === "ok" ? "text-beryl-glow" :
-            l.t === "err" ? "text-bad" :
-            l.t === "dim" ? "text-muted" :
-            l.t === "bot" ? "text-beryl/85" :
-            l.t === "out" ? "text-text/80" : "text-text"
+            l.t === "ok" ? "text-con-ok" :
+            l.t === "err" ? "text-con-err" :
+            l.t === "dim" ? "text-con-muted" :
+            l.t === "bot" ? "text-con-accent/90" :
+            l.t === "out" ? "text-con-text/80" : "text-con-text"
           }>
             {l.t === "in" ? <span className="prompt">{l.s}</span>
               : l.t === "bot" ? (
                 <span className="whitespace-pre-wrap">
-                  <span className="text-beryl/60 mr-1.5">beryl&gt;</span>{l.s}
-                  {l.href && <> <Link href={l.href} className="underline text-beryl-glow hover:text-beryl">{l.href} ↗</Link></>}
+                  <span className="text-con-accent/60 mr-1.5">beryl&gt;</span>{l.s}
+                  {l.href && <> <Link href={l.href} className="underline text-con-ok hover:text-con-accent">{l.href} ↗</Link></>}
                 </span>
               )
               : <span className="whitespace-pre-wrap">{l.s}</span>}
@@ -299,11 +299,11 @@ export default function DeployTerminal() {
           onSubmit={(e) => { e.preventDefault(); const v = val; setVal(""); run(v); }}
           className="flex items-center"
         >
-          <span className="text-beryl mr-2">›</span>
+          <span className="text-con-accent mr-2">$</span>
           <input
             ref={inputRef}
             id="term-in" autoComplete="off" spellCheck={false}
-            className="flex-1 bg-transparent outline-none text-text caret-beryl"
+            className="flex-1 bg-transparent outline-none text-con-text caret-con-accent placeholder:text-con-muted/60"
             value={val} disabled={busy}
             placeholder={placeholder}
             onChange={(e) => setVal(e.target.value)}

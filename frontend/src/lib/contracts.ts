@@ -141,7 +141,7 @@ export const ERC20_ABI = [
   { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] },
 ] as const;
 
-// OriginSwapRouter — exact-input buy/sell for the in-app swap box.
+// B20SwapRouter — exact-input buy/sell for the in-app swap box.
 // buy  = swapExactIn(key, true,  ethIn,   minOut, recipient) with msg.value = ethIn
 // sell = swapExactIn(key, false, tokenIn, minOut, recipient) after approve
 export const ROUTER_ABI = [

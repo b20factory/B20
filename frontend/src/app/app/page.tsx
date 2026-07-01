@@ -1,18 +1,22 @@
 "use client";
-import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import LaunchForm from "@/components/LaunchForm";
 import DeployTerminal from "@/components/DeployTerminal";
 import { IS_TESTNET } from "@/lib/contracts";
 
 function AppInner() {
   const sp = useSearchParams();
+  const router = useRouter();
   const [mode, setMode] = useState<"app" | "terminal">(sp.get("mode") === "terminal" ? "terminal" : "app");
+  // keep the mode in sync when navigating between the Launch / Terminal menus
+  // (same route, only the query changes — the component does not remount)
+  useEffect(() => { setMode(sp.get("mode") === "terminal" ? "terminal" : "app"); }, [sp]);
 
   const tab = (id: "app" | "terminal", label: string) => (
     <button
-      onClick={() => setMode(id)}
-      className={`px-3.5 py-1.5 rounded-md text-sm transition-colors ${mode === id ? "bg-beryl/15 text-beryl-glow" : "text-text/55 hover:text-beryl"}`}
+      onClick={() => { setMode(id); router.replace(id === "terminal" ? "/app?mode=terminal" : "/app", { scroll: false }); }}
+      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${mode === id ? "bg-panel text-text shadow-card" : "text-muted hover:text-text"}`}
     >
       {label}
     </button>
@@ -20,22 +24,21 @@ function AppInner() {
 
   return (
     <main className="wrap py-10">
-      <div className="flex flex-wrap items-end gap-3 mb-6">
+      <div className="flex flex-wrap items-end gap-3 mb-8">
         <div>
-          <h1 className="text-2xl text-text">launch a token</h1>
-          <p className="text-sm text-muted mt-1">deploy a native B20 from the form or the command line — same engine.</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-text">Launch a token</h1>
+          <p className="text-sm text-muted mt-1.5">Deploy a native B20 from the form or the command line. Same engine, your choice.</p>
         </div>
-        <div className="ml-auto inline-flex rounded-lg border border-line p-1 bg-bg/40">
-          {tab("app", "› app")}
-          {tab("terminal", "› terminal")}
+        <div className="ml-auto inline-flex rounded-lg bg-panel2 p-1">
+          {tab("app", "Form")}
+          {tab("terminal", "Terminal")}
         </div>
       </div>
 
       {mode === "app" ? <LaunchForm /> : <DeployTerminal />}
 
-      <p className="mt-6 text-xs text-muted flex items-center gap-2">
-        <span className="w-1.5 h-1.5 rounded-full bg-warn/70" />
-        {IS_TESTNET ? "base sepolia · testnet" : "base · mainnet"} — admin-less · 80% pool / 20% vested
+      <p className="mt-6 text-xs text-muted">
+        {IS_TESTNET ? "Base Sepolia · testnet" : "Base · mainnet"} · admin-less · 80% pool / 20% vested
       </p>
     </main>
   );

@@ -87,8 +87,8 @@ export default function MyTokens() {
 
   if (!isConnected) return (
     <main className="wrap py-16 text-center">
-      <p className="text-muted mb-4">connect your wallet to open the creator panel</p>
-      <Link href="/app" className="btn-primary">back to launch</Link>
+      <p className="text-muted mb-4">Connect your wallet to open the creator panel.</p>
+      <Link href="/app" className="btn-primary">Back to launch</Link>
     </main>
   );
 
@@ -96,23 +96,24 @@ export default function MyTokens() {
     <main className="wrap py-10">
       <div className="flex items-end gap-4 mb-6 flex-wrap">
         <div>
-          <h1 className="text-2xl text-text">creator panel</h1>
-          <p className="text-sm text-muted mt-1">your B20 tokens · claim swap fees and vested supply</p>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-text">Creator panel</h1>
+          <p className="text-sm text-muted mt-1.5">Your B20 tokens. Claim swap fees and vested supply.</p>
         </div>
         {rows.length > 0 && (
           <div className="ml-auto text-right">
-            <div className="text-xs text-muted">total fees accrued</div>
-            <div className="text-beryl text-lg font-semibold">{Number(formatEther(totalEarned)).toFixed(6)} ETH</div>
+            <div className="text-xs text-muted">Total fees accrued</div>
+            <div className="text-beryl-glow text-lg font-semibold font-mono tabular">{Number(formatEther(totalEarned)).toFixed(6)} ETH</div>
           </div>
         )}
       </div>
 
       {loading ? (
-        <div className="text-muted">scanning tokens…<span className="cursor ml-1" /></div>
+        <div className="text-muted">Scanning tokens…</div>
       ) : rows.length === 0 ? (
         <div className="term p-8 text-center">
-          <div className="text-muted mb-4">no tokens found for this wallet</div>
-          <Link href="/app" className="btn-primary">launch your first B20</Link>
+          <div className="text-text font-medium mb-1">No tokens found for this wallet</div>
+          <p className="text-sm text-muted mb-5">Launch your first B20 and it will show up here.</p>
+          <Link href="/app" className="btn-primary">Launch a token</Link>
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -122,7 +123,7 @@ export default function MyTokens() {
                 {r.image ? (
                   <img src={r.image} alt={r.symbol} className="w-12 h-12 rounded-lg object-cover shrink-0 border border-line" />
                 ) : (
-                  <div className="w-12 h-12 rounded-lg border border-line bg-bg flex items-center justify-center text-beryl font-bold shrink-0">{r.symbol.slice(0, 2)}</div>
+                  <div className="w-12 h-12 rounded-lg border border-line bg-panel2 flex items-center justify-center text-beryl font-semibold shrink-0">{r.symbol.slice(0, 2)}</div>
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="font-medium text-text group-hover:text-beryl transition-colors truncate">{r.name}</div>
@@ -132,19 +133,19 @@ export default function MyTokens() {
 
               <div className="mt-3 pt-3 hairline space-y-2 text-[12px]">
                 <div className="flex items-center justify-between">
-                  <span className="text-text/60">fees accrued</span>
-                  <span className="text-beryl">{Number(formatEther(r.earned)).toFixed(6)} ETH</span>
+                  <span className="text-muted">Fees accrued</span>
+                  <span className="text-beryl-glow font-mono tabular">{Number(formatEther(r.earned)).toFixed(6)} ETH</span>
                 </div>
                 <button className="btn w-full text-[12px] py-1.5" disabled={r.earned === 0n || busy === r.token + ":fee"} onClick={() => claimFees(r)}>
-                  {busy === r.token + ":fee" ? "claiming…" : r.earned === 0n ? "no fees yet" : "claim fees"}
+                  {busy === r.token + ":fee" ? "Claiming…" : r.earned === 0n ? "No fees yet" : "Claim fees"}
                 </button>
 
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-text/60">vesting claimable</span>
-                  <span className="text-beryl">{Number(formatEther(r.vestClaimable)).toLocaleString()} {r.symbol}</span>
+                  <span className="text-muted">Vesting claimable</span>
+                  <span className="text-beryl-glow font-mono tabular">{Number(formatEther(r.vestClaimable)).toLocaleString()} {r.symbol}</span>
                 </div>
                 <button className="btn w-full text-[12px] py-1.5" disabled={r.vestClaimable === 0n || busy === r.token + ":vest"} onClick={() => claimVesting(r)}>
-                  {busy === r.token + ":vest" ? "claiming…" : r.vestClaimable === 0n ? "nothing unlocked yet" : "claim vesting"}
+                  {busy === r.token + ":vest" ? "Claiming…" : r.vestClaimable === 0n ? "Nothing unlocked yet" : "Claim vesting"}
                 </button>
               </div>
             </div>
@@ -153,8 +154,8 @@ export default function MyTokens() {
       )}
 
       <div className="mt-8 hairline pt-4 text-xs text-muted flex gap-4">
-        <Link href="/app" className="link">← launch another</Link>
-        <Link href="/explore" className="link">explore feed →</Link>
+        <Link href="/app" className="link">← Launch another</Link>
+        <Link href="/explore" className="link">Explore feed →</Link>
       </div>
     </main>
   );

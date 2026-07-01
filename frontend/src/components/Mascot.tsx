@@ -84,7 +84,7 @@ export default function Mascot({ size = 240, talk = true }: { size?: number; tal
       <style jsx>{`
         .mwrap { position: relative; display: inline-block; }
         .gesture { animation: floaty 3.6s ease-in-out infinite; transform-origin: center bottom; position: relative; }
-        .shot { display: block; width: 100%; height: auto; filter: drop-shadow(0 12px 26px rgba(63, 240, 212, 0.16)); }
+        .shot { display: block; width: 100%; height: auto; filter: drop-shadow(0 14px 24px rgba(16, 24, 40, 0.14)); }
         /* two-frame arm gesture: base = arms down, up = right arm raised (explaining) */
         .base { position: relative; }
         ${bigScreen ? `
@@ -133,18 +133,18 @@ export default function Mascot({ size = 240, talk = true }: { size?: number; tal
         .bubble {
           position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
           margin-bottom: 14px; white-space: nowrap; max-width: 90vw;
-          background: #0b1012; border: 1px solid #1c8b7e; color: #cfe9e4;
+          background: #ffffff; border: 1px solid #E6EAE8; color: #171E20;
           font-size: 12px; padding: 8px 12px; border-radius: 10px;
-          box-shadow: 0 6px 24px rgba(0,0,0,0.4); font-family: var(--font-mono, monospace);
+          box-shadow: 0 4px 16px rgba(16,24,40,0.10); font-family: var(--font-sans, sans-serif);
           transition: opacity 0.35s ease, transform 0.35s ease; z-index: 5;
         }
         .bubble.in { opacity: 1; transform: translateX(-50%) translateY(0); }
         .bubble.out { opacity: 0; transform: translateX(-50%) translateY(4px); }
-        .bubble-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #3df0d4; margin-right: 7px; vertical-align: middle; box-shadow: 0 0 6px #3df0d4; }
+        .bubble-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #0D9488; margin-right: 7px; vertical-align: middle; }
         .tail { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); width: 0; height: 0;
-          border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 7px solid #1c8b7e; }
+          border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 7px solid #E6EAE8; }
         .tail::after { content: ""; position: absolute; top: -8px; left: -6px; width: 0; height: 0;
-          border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #0b1012; }
+          border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #ffffff; }
 
         @media (prefers-reduced-motion: reduce) {
           .gesture, .curs, .up, .base, .screen { animation: none; }

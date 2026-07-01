@@ -92,9 +92,9 @@ async function main() {
   console.log("RecomNFTDeployer.setLaunchpad ->", launchpadAddr);
 
   // 7. Swap router (kept for parity; B20FeeSplitter pays ETH so buyback unused)
-  const Router = await ethers.getContractFactory("OriginSwapRouter");
+  const Router = await ethers.getContractFactory("B20SwapRouter");
   const router = await Router.deploy(POOL_MANAGER); await router.waitForDeployment();
-  const routerAddr = await router.getAddress(); console.log("OriginSwapRouter:", routerAddr);
+  const routerAddr = await router.getAddress(); console.log("B20SwapRouter:", routerAddr);
   await (await factory.setRouter(routerAddr)).wait();
   console.log("factory.setRouter ->", routerAddr);
 

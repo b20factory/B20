@@ -60,7 +60,8 @@ function fmtEth(n: number): string {
   if (n >= 1000) return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
   if (n >= 1) return n.toFixed(3);
   if (n >= 0.0001) return n.toFixed(5);
-  return n.toExponential(2);
+  // tiny values: plain decimals, never scientific notation (no trailing e-7)
+  return n.toFixed(10).replace(/0+$/, "").replace(/\.$/, "");
 }
 function pct(v: number) { return `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`; }
 
@@ -184,7 +185,7 @@ export default function Explore() {
 
   const tabBtn = (id: Tab, label: string) => (
     <button key={id} onClick={() => setTab(id)}
-      className={`px-3.5 py-1.5 rounded-md text-sm transition-colors ${tab === id ? "bg-beryl/15 text-beryl-glow" : "text-text/55 hover:text-beryl"}`}>
+      className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${tab === id ? "bg-panel text-text shadow-card" : "text-muted hover:text-text"}`}>
       {label}
     </button>
   );
@@ -194,36 +195,36 @@ export default function Explore() {
       <Ticker cards={newest} />
 
       <div className="wrap py-8">
-        <div className="flex flex-wrap items-end gap-3 mb-5">
+        <div className="flex flex-wrap items-end gap-3 mb-6">
           <div>
-            <p className="text-[11px] font-semibold text-beryl uppercase tracking-wider mb-1">explore</p>
-            <h1 className="text-2xl sm:text-3xl font-bold text-text">discover B20 launches</h1>
+            <p className="h-sec mb-1.5">Explore</p>
+            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-text">Discover B20 launches</h1>
           </div>
           <div className="ml-auto flex items-center gap-3">
-            {IS_TESTNET && <span className="chip border-warn/40 text-warn text-[11px]">testnet</span>}
-            <Link href="/app" className="btn-primary">+ launch</Link>
+            {IS_TESTNET && <span className="chip border-warn/30 text-warn text-[11px]">Testnet</span>}
+            <Link href="/app" className="btn-primary">Launch</Link>
           </div>
         </div>
 
-        <input className="input w-full mb-6" placeholder="search by name, ticker, or contract address (0x…)" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <input className="input w-full mb-6" placeholder="Search by name, ticker, or contract address (0x…)" value={search} onChange={(e) => setSearch(e.target.value)} />
 
         {loading ? (
-          <div className="term p-8 text-center text-muted">scanning chain…<span className="cursor ml-1" /></div>
+          <div className="term p-10 text-center text-muted">Scanning the chain…</div>
         ) : cards.length === 0 ? (
           <div className="term p-10 text-center">
-            <div className="text-muted mb-2">no tokens launched yet</div>
-            <p className="text-[12px] text-muted/60 mb-5">be the first to deploy a native B20</p>
-            <Link href="/app" className="btn-primary">launch a token</Link>
+            <div className="text-text font-medium mb-1">No tokens launched yet</div>
+            <p className="text-sm text-muted mb-5">Be the first to deploy a native B20.</p>
+            <Link href="/app" className="btn-primary">Launch a token</Link>
           </div>
         ) : search ? (
           <Grid items={list} ethUsd={ethUsd} />
         ) : (
           <div className="space-y-9">
             {featured.length > 0 && <Rail title="Featured" subtitle="Most active right now" items={featured} ethUsd={ethUsd} />}
-            <div className="inline-flex rounded-lg border border-line p-1 bg-bg/40">
-              {tabBtn("trending", "› trending")}
-              {tabBtn("new", "› new")}
-              {tabBtn("live", "› live")}
+            <div className="inline-flex rounded-lg bg-panel2 p-1">
+              {tabBtn("trending", "Trending")}
+              {tabBtn("new", "New")}
+              {tabBtn("live", "Live")}
             </div>
             <Grid items={list} ethUsd={ethUsd} />
           </div>
@@ -245,15 +246,16 @@ function Ticker({ cards }: { cards: Card[] }) {
     : ["B20factory — native token launchpad on Base Beryl"];
   const items = [...events, ...events, ...events];
   return (
-    <div className="border-y border-line bg-panel2/40 py-2 overflow-hidden select-none">
+    <div className="border-b border-line bg-panel py-2 overflow-hidden select-none">
       <div className="flex whitespace-nowrap animate-ticker">
         {items.map((e, i) => (
-          <span key={i} className="text-[11px] text-text/55 mx-7"><span className="text-beryl mr-2">◆</span>{e}</span>
+          <span key={i} className="text-[11px] text-muted mx-7 font-mono tabular"><span className="text-beryl mr-2">•</span>{e}</span>
         ))}
       </div>
       <style jsx>{`
         @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-33.33%); } }
-        .animate-ticker { animation: ticker ${Math.max(events.length * 4, 24)}s linear infinite; }
+        .animate-ticker { animation: ticker ${Math.max(events.length * 5, 30)}s linear infinite; }
+        @media (prefers-reduced-motion: reduce) { .animate-ticker { animation: none; } }
       `}</style>
     </div>
   );
@@ -268,7 +270,7 @@ function Sparkline({ series, up }: { series: number[]; up: boolean }) {
   const x = (i: number) => P + (i / (series.length - 1)) * (W - 2 * P);
   const y = (v: number) => P + (1 - (v - min) / range) * (H - 2 * P);
   const d = series.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  const stroke = up ? "#3fe0c5" : "#ef4444";
+  const stroke = up ? "#0D9488" : "#D92D20";
   return (
     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="shrink-0">
       <path d={`${d} L${x(series.length - 1).toFixed(1)},${H} L${x(0).toFixed(1)},${H} Z`} fill={stroke} fillOpacity="0.12" />
@@ -345,27 +347,27 @@ function CardEl({ c, ethUsd }: { c: Card; ethUsd: number }) {
       <Link href={`/token/${c.token}`} className="block mt-3 pt-3 hairline">
         <div className="grid grid-cols-3 gap-2 text-[11px]">
           <div>
-            <div className="text-muted/70">mcap</div>
-            <div className="text-text/85">{traded ? usd(c.mcapEth, ethUsd) : "--"}</div>
-            {c.changePct !== null && <div className={up ? "text-beryl-glow" : "text-bad"}>{pct(c.changePct)}</div>}
+            <div className="text-muted/80">Mcap</div>
+            <div className="text-text font-mono tabular">{traded ? usd(c.mcapEth, ethUsd) : "--"}</div>
+            {c.changePct !== null && <div className={`font-mono tabular ${up ? "text-beryl-glow" : "text-bad"}`}>{pct(c.changePct)}</div>}
           </div>
           <div>
-            <div className="text-muted/70">volume</div>
-            <div className="text-text/85">{c.volEth > 0 ? `${fmtEth(c.volEth)} ETH` : "--"}</div>
-            <div className="text-muted/60">{c.volEth > 0 ? usd(c.volEth, ethUsd) : ""}</div>
+            <div className="text-muted/80">Volume</div>
+            <div className="text-text font-mono tabular">{c.volEth > 0 ? `${fmtEth(c.volEth)} ETH` : "--"}</div>
+            <div className="text-muted/60 font-mono tabular">{c.volEth > 0 ? usd(c.volEth, ethUsd) : ""}</div>
           </div>
           <div>
-            <div className="text-muted/70">fees</div>
-            <div className="text-beryl/90">{c.earnedEth > 0 ? `${fmtEth(c.earnedEth)} ETH` : "--"}</div>
-            <div className="text-muted/60">{c.earnedEth > 0 ? usd(c.earnedEth, ethUsd) : ""}</div>
+            <div className="text-muted/80">Fees</div>
+            <div className="text-beryl-glow font-mono tabular">{c.earnedEth > 0 ? `${fmtEth(c.earnedEth)} ETH` : "--"}</div>
+            <div className="text-muted/60 font-mono tabular">{c.earnedEth > 0 ? usd(c.earnedEth, ethUsd) : ""}</div>
           </div>
         </div>
       </Link>
 
       <div className="flex gap-1.5 mt-3">
-        <Link href={`/token/${c.token}`} className="chip-on flex-1 text-center text-[11px] py-1">buy</Link>
-        <Link href={`/token/${c.token}`} className="chip flex-1 text-center text-[11px] py-1 hover:border-bad/40 hover:text-bad">sell</Link>
-        <Link href={`/token/${c.token}`} className="chip text-[11px] py-1 px-2 hover:border-beryl-dim/50">chart</Link>
+        <Link href={`/token/${c.token}`} className="chip-on flex-1 justify-center text-[11px] py-1">Buy</Link>
+        <Link href={`/token/${c.token}`} className="chip flex-1 justify-center text-[11px] py-1 hover:border-bad/40 hover:text-bad">Sell</Link>
+        <Link href={`/token/${c.token}`} className="chip text-[11px] py-1 px-2.5 hover:border-beryl-dim">Chart</Link>
       </div>
     </div>
   );

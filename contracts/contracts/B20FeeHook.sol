@@ -26,7 +26,7 @@ import {StateLibrary} from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
  *         next one, ramping fully to max at VOL_FULL_TICKS.
  *
  *         Worst case a buy/sell simulator can ever observe is maxFee (<= 5%), so the
- *         token is never honeypot-flagged (unlike OriginPad's 80% anti-sniper decay).
+ *         token is never honeypot-flagged (unlike 80%-style anti-sniper decay hooks).
  *         The paired B20 token has no transfer tax.
  * @dev Address must be CREATE2 mined so low bits encode beforeInitialize (0x2000) +
  *      beforeSwap (0x80) + afterSwap (0x40) + beforeSwapReturnDelta (0x08) +

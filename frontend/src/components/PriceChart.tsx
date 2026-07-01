@@ -106,15 +106,15 @@ export default function PriceChart({ token, symbol }: { token: `0x${string}`; sy
   const unit = supply > 0 ? "ETH mcap" : "ETH";
 
   if (loading) {
-    return <div className="h-[420px] flex items-center justify-center text-xs text-muted animate-pulse">loading chart…</div>;
+    return <div className="h-[420px] flex items-center justify-center text-xs text-muted animate-pulse">Loading chart…</div>;
   }
 
   if (data.length < 2) {
     return (
       <div className="h-[420px] flex flex-col items-center justify-center gap-2">
-        <p className="text-sm text-text/70">no trades yet</p>
-        {data.length > 0 && <p className="font-mono text-xs text-beryl">{fmtEth(data[data.length - 1])} {unit}</p>}
-        <p className="text-[11px] text-muted">the chart fills in the moment the first swap lands</p>
+        <p className="text-sm font-medium text-text">No trades yet</p>
+        {data.length > 0 && <p className="font-mono text-xs text-beryl-glow">{fmtEth(data[data.length - 1])} {unit}</p>}
+        <p className="text-[11px] text-muted">The chart fills in the moment the first swap lands.</p>
       </div>
     );
   }
@@ -127,12 +127,12 @@ export default function PriceChart({ token, symbol }: { token: `0x${string}`; sy
   const line = data.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
   const area = `${line} L${x(data.length - 1).toFixed(1)},${H - PAD} L${x(0).toFixed(1)},${H - PAD} Z`;
   const up = data[data.length - 1] >= data[0];
-  const stroke = up ? "#3fe0c5" : "#ef4444";
+  const stroke = up ? "#0D9488" : "#D92D20";
 
   return (
     <div className="p-3">
       <div className="flex items-center justify-between mb-2">
-        <span className="font-mono text-sm font-bold" style={{ color: stroke }}>{fmtEth(data[data.length - 1])} {unit}</span>
+        <span className="font-mono text-sm font-semibold tabular" style={{ color: stroke }}>{fmtEth(data[data.length - 1])} {unit}</span>
         <span className="text-[11px] text-muted">{points.length} trade{points.length === 1 ? "" : "s"} · {symbol}/ETH</span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 380 }} preserveAspectRatio="none">
@@ -146,8 +146,8 @@ export default function PriceChart({ token, symbol }: { token: `0x${string}`; sy
         <path d={line} fill="none" stroke={stroke} strokeWidth="2" vectorEffect="non-scaling-stroke" />
       </svg>
       <div className="flex justify-between text-[10px] text-muted mt-1 font-mono">
-        <span>low {fmtEth(min)}</span>
-        <span>high {fmtEth(max)}</span>
+        <span>Low {fmtEth(min)}</span>
+        <span>High {fmtEth(max)}</span>
       </div>
     </div>
   );
