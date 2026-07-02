@@ -123,6 +123,7 @@ export const VESTING_ABI = [
 // B20FeeSplitter — accrues swap fees in ETH; distribute() splits to creator/platform.
 export const SPLITTER_ABI = [
   { type: "function", name: "distribute", stateMutability: "nonpayable", inputs: [], outputs: [] },
+  { type: "function", name: "creator", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
 ] as const;
 
 export const HOOK_ABI = [

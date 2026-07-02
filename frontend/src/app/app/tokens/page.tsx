@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { formatEther } from "viem";
 import Link from "next/link";
 import { ADDR, NFT_ABI, ERC20_ABI, FACTORY_ABI, VESTING_ABI, SPLITTER_ABI } from "@/lib/contracts";
+import { getAllTokenMeta } from "@/lib/tokenMeta";
 import { ACTIVE_CHAIN } from "@/lib/wagmi";
 
 type TokenRow = {
@@ -32,29 +33,41 @@ export default function MyTokens() {
     if (!pub || !address) { setLoading(false); return; }
     try {
       const tokens = await pub.readContract({ address: ADDR.tokenFactory, abi: FACTORY_ABI, functionName: "getAllTokens" }) as `0x${string}`[];
+      const meta = await getAllTokenMeta().catch(() => ({} as Record<string, any>));
       const results: TokenRow[] = [];
       for (const tok of tokens) {
         try {
-          const col = await pub.readContract({ address: ADDR.tokenFactory, abi: FACTORY_ABI, functionName: "tokenToCollection", args: [tok] }) as `0x${string}`;
-          const ci: any = await pub.readContract({ address: col, abi: NFT_ABI, functionName: "getCollectionInfo" });
-          const creator: string = ci[8] || "";
+          // Ownership comes from the splitter: it is set for BOTH launch paths.
+          // (Direct launches have a synthetic collection id with no contract, so
+          // the old getCollectionInfo() lookup silently skipped every direct token.)
+          const [splitter, vesting, col] = await Promise.all([
+            pub.readContract({ address: ADDR.tokenFactory, abi: FACTORY_ABI, functionName: "tokenToSplitter", args: [tok] }) as Promise<`0x${string}`>,
+            pub.readContract({ address: ADDR.tokenFactory, abi: FACTORY_ABI, functionName: "tokenToVesting", args: [tok] }) as Promise<`0x${string}`>,
+            pub.readContract({ address: ADDR.tokenFactory, abi: FACTORY_ABI, functionName: "tokenToCollection", args: [tok] }) as Promise<`0x${string}`>,
+          ]);
+          if (!splitter || splitter === ZERO) continue;
+          const creator = String(await pub.readContract({ address: splitter, abi: SPLITTER_ABI, functionName: "creator" }).catch(() => ""));
           if (creator.toLowerCase() !== address.toLowerCase()) continue;
 
           const [name, symbol] = await Promise.all([
             pub.readContract({ address: tok, abi: ERC20_ABI, functionName: "name" }),
             pub.readContract({ address: tok, abi: ERC20_ABI, functionName: "symbol" }),
           ]);
-          const [splitter, vesting] = await Promise.all([
-            pub.readContract({ address: ADDR.tokenFactory, abi: FACTORY_ABI, functionName: "tokenToSplitter", args: [tok] }) as Promise<`0x${string}`>,
-            pub.readContract({ address: ADDR.tokenFactory, abi: FACTORY_ABI, functionName: "tokenToVesting", args: [tok] }) as Promise<`0x${string}`>,
-          ]);
+          // image: off-chain token meta first, legacy collection art as fallback
+          let image = meta[tok.toLowerCase()]?.image || "";
+          if (!image && col && col !== ZERO) {
+            try {
+              const ci: any = await pub.readContract({ address: col, abi: NFT_ABI, functionName: "getCollectionInfo" });
+              image = ci[3] || "";
+            } catch {}
+          }
           let earned = 0n, vestClaimable = 0n;
           if (splitter && splitter !== ZERO) earned = await pub.getBalance({ address: splitter }).catch(() => 0n);
           if (vesting && vesting !== ZERO) {
             vestClaimable = await pub.readContract({ address: vesting, abi: VESTING_ABI, functionName: "claimable" }).catch(() => 0n) as bigint;
           }
 
-          results.push({ token: tok, collection: col, name: String(name), symbol: String(symbol), image: ci[3] || "", splitter, vesting, earned, vestClaimable });
+          results.push({ token: tok, collection: col, name: String(name), symbol: String(symbol), image, splitter, vesting, earned, vestClaimable });
         } catch {}
       }
       setRows(results);
