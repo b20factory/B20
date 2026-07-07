@@ -22,7 +22,8 @@ const FEATURES = [
 
 export default function Home() {
   return (
-    <main className="wrap pb-24">
+    <main className="wrap pb-24 relative">
+      <div aria-hidden className="hero-glow" />
       {/* hero */}
       <section className="grid lg:grid-cols-2 gap-12 items-center pt-16 sm:pt-24">
         <div className="animate-fade-up">

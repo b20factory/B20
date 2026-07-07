@@ -91,58 +91,37 @@ input[type="range"] { accent-color: #0D9488; }
   .tabular { font-variant-numeric: tabular-nums; }
 }
 
-/* ── ambient background — slow color drift behind everything ─────────────── */
-.ambient {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  overflow: hidden;
-  pointer-events: none;
-}
+/* ── ambient background — Webora-style soft blobs in the B20 palette ─────── */
 .ambient-blob {
   position: absolute;
-  width: 55vmax;
-  height: 55vmax;
+  width: 44vw;
+  height: 44vw;
+  max-width: 640px;
+  max-height: 640px;
   border-radius: 9999px;
-  filter: blur(90px);
-  opacity: 0.5;
-  will-change: transform;
+  filter: blur(110px);
+  opacity: 0.18;
 }
-.ambient-a {
-  background: radial-gradient(circle at 50% 50%, rgba(47, 212, 188, 0.35), transparent 62%);
-  top: -18vmax; left: -12vmax;
-  animation: ambient-drift-a 26s ease-in-out infinite alternate;
-}
-.ambient-b {
-  background: radial-gradient(circle at 50% 50%, rgba(0, 82, 255, 0.22), transparent 62%);
-  bottom: -20vmax; right: -14vmax;
-  animation: ambient-drift-b 32s ease-in-out infinite alternate;
-}
-.ambient-c {
-  background: radial-gradient(circle at 50% 50%, rgba(255, 196, 87, 0.20), transparent 62%);
-  top: 30%; left: 55%;
-  width: 40vmax; height: 40vmax;
-  animation: ambient-drift-c 38s ease-in-out infinite alternate;
-}
-/* barely-there grain so the blur doesn't band on large screens */
-.ambient-grain {
+/* soft radial accent falling from the top of the hero (Webora-style) */
+.hero-glow {
+  pointer-events: none;
   position: absolute;
-  inset: 0;
-  opacity: 0.35;
-  background-image: radial-gradient(rgba(23, 30, 32, 0.035) 1px, transparent 1px);
-  background-size: 22px 22px;
+  inset: 0 0 auto 0;
+  height: 520px;
+  z-index: -1;
+  background: radial-gradient(60% 60% at 50% 0%, rgba(0, 82, 255, 0.10), transparent 70%);
 }
 @keyframes ambient-drift-a {
-  from { transform: translate3d(0, 0, 0) scale(1); }
-  to   { transform: translate3d(9vmax, 7vmax, 0) scale(1.12); }
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(28px, 34px); }
 }
 @keyframes ambient-drift-b {
-  from { transform: translate3d(0, 0, 0) scale(1.08); }
-  to   { transform: translate3d(-8vmax, -6vmax, 0) scale(0.96); }
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-36px, 20px); }
 }
 @keyframes ambient-drift-c {
-  from { transform: translate3d(0, 0, 0) scale(0.95); }
-  to   { transform: translate3d(-10vmax, 6vmax, 0) scale(1.1); }
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(18px, -28px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
