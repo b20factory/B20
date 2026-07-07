@@ -3,6 +3,7 @@ import { JetBrains_Mono, Instrument_Sans } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/Providers";
 import Navbar from "@/components/Navbar";
+import AmbientBackground from "@/components/AmbientBackground";
 
 const sans = Instrument_Sans({ subsets: ["latin"], variable: "--font-sans" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
       <body className="min-h-screen antialiased font-sans">
+        <AmbientBackground />
         <Providers>
           <Navbar />
           {children}
