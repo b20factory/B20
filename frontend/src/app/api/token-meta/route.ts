@@ -12,9 +12,12 @@ const FILE = path.join(process.cwd(), "data", "token-meta.json");
 
 type Meta = {
   token: string;
+  venue?: "base" | "robinhood";
   image?: string;
   website?: string;
   x?: string;
+  github?: string;
+  telegram?: string;
   description?: string;
   creator?: string;
   name?: string;
@@ -55,6 +58,22 @@ function normUrl(v?: string): string | undefined {
   if (!s) return undefined;
   return /^https?:\/\//i.test(s) ? s : `https://${s}`;
 }
+function normGithub(v?: string): string | undefined {
+  if (!v) return undefined;
+  let s = v.trim();
+  if (!s) return undefined;
+  if (/^https?:\/\//i.test(s)) return s;
+  s = s.replace(/^@/, "");
+  return `https://github.com/${s}`;
+}
+function normTelegram(v?: string): string | undefined {
+  if (!v) return undefined;
+  let s = v.trim();
+  if (!s) return undefined;
+  if (/^https?:\/\//i.test(s)) return s;
+  s = s.replace(/^@/, "");
+  return `https://t.me/${s}`;
+}
 
 export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
@@ -78,9 +97,12 @@ export async function POST(req: NextRequest) {
   const next: Meta = {
     ...prev,
     token: key,
+    venue: body.venue === "robinhood" ? "robinhood" : body.venue === "base" ? "base" : prev.venue,
     image: clean(body.image, 500) ?? prev.image,
     website: normUrl(clean(body.website, 300)) ?? prev.website,
     x: normX(clean(body.x, 120)) ?? prev.x,
+    github: normGithub(clean(body.github, 120)) ?? prev.github,
+    telegram: normTelegram(clean(body.telegram, 120)) ?? prev.telegram,
     description: clean(body.description, 400) ?? prev.description,
     creator: isAddr(body.creator) ? body.creator.toLowerCase() : prev.creator,
     name: clean(body.name, 64) ?? prev.name,

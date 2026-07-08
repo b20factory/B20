@@ -1,46 +1,64 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useAccount, useBalance } from "wagmi";
+import { useAccount, useBalance, useConnect, useSignMessage } from "wagmi";
 import { useLaunch, type LaunchInput } from "@/lib/useLaunch";
 import { getEthUsd, ETH_USD_FALLBACK } from "@/lib/ethPrice";
 import { EXPLORER } from "@/lib/contracts";
+import { RH, rhLive, type VenueId } from "@/lib/chains";
+import { getAgents, registerAgent, registerMessage } from "@/lib/agents";
 
 type Line = { t: "in" | "out" | "ok" | "err" | "dim" | "bot"; s: string; href?: string };
 
 const HELP = [
   "commands:",
   "  help                                       show this",
+  "  connect                                    connect a wallet",
+  "  register <name>                            register your agent name (signs a message)",
+  "  agent                                      show your agent name",
   "  balance                                    wallet balance",
   "  price                                      live ETH/USD",
   "  fee --base 1 --max 5                       preview a fee band",
   "  launch                                     guided launch (beryl walks you through)",
   "  launch --name <n> --symbol <s>             one-shot launch",
+  "         [--chain base|robinhood]            venue (default base)",
   "         [--base 3] [--max 5] [--mc 10000]",
-  "         [--receive eth|token|both]          how you receive your fee share",
-  "         [--image <url>]                     token image URL",
+  "         [--receive eth|token|both]          how you receive your fee share (base only)",
+  "         [--image <url>] [--bio <text>]      token image URL + short bio",
+  "         [--x @h] [--github @h] [--tg @h]    socials",
   "  cancel                                     stop the guided launch",
   "  clear                                      clear screen",
 ];
 
 // guided-launch wizard ------------------------------------------------------
-type Step = "name" | "symbol" | "fee" | "receive" | "mc" | "image" | "x" | "website" | "confirm";
-type Draft = { name?: string; symbol?: string; base?: number; max?: number; receive?: number; mc?: number; image?: string; x?: string; website?: string };
-const ORDER: Step[] = ["name", "symbol", "fee", "receive", "mc", "image", "x", "website", "confirm"];
+type Step = "chain" | "name" | "symbol" | "fee" | "receive" | "mc" | "image" | "bio" | "x" | "github" | "telegram" | "confirm";
+type Draft = {
+  venue?: VenueId; name?: string; symbol?: string; base?: number; max?: number;
+  receive?: number; mc?: number; image?: string; bio?: string; x?: string; github?: string; telegram?: string;
+};
+const ORDER: Step[] = ["chain", "name", "symbol", "fee", "receive", "mc", "image", "bio", "x", "github", "telegram", "confirm"];
 const RECV = ["ETH", "token", "both"];
 
 function prompt(step: Step, d: Draft): string {
+  const rh = d.venue === "robinhood";
   switch (step) {
-    case "name": return "let's launch a token. what should it be called?";
+    case "chain": return `where do we launch? \`base\` (native B20) or \`robinhood\` (Robinhood Chain)${rhLive ? "" : " — robinhood coming online soon"}. hit enter for base.`;
+    case "name": return "what should the token be called?";
     case "symbol": return `nice — "${d.name}". ticker/symbol? (e.g. CAT, max 11 chars)`;
-    case "fee": return "fee band? type like `3 5` for base 3% / max 5%, or hit enter for the default [3-5].";
+    case "fee": return rh
+      ? "trading fee? type like `3` for 3%, or hit enter for the default [3]."
+      : "fee band? type like `3 5` for base 3% / max 5%, or hit enter for the default [3-5].";
     case "receive": return "receive your fee share in `eth`, `token`, or `both`? (platform cut is always eth) hit enter for eth.";
-    case "mc": return "starting market cap in USD? hit enter for the default [10000].";
-    case "image": return "token image URL? paste one or hit enter to skip.";
-    case "x": return "X / twitter? paste @handle or a link (shows on the token page + ready for DexScreener), or hit enter to skip.";
-    case "website": return "website? paste a URL or hit enter to skip.";
+    case "mc": return rh
+      ? "graduation market cap in USD? the token moves to Uniswap v3 there. hit enter for the default [10000]."
+      : "starting market cap in USD? hit enter for the default [10000].";
+    case "image": return "token photo? paste an image URL (this shows on the feed card + socials), or hit enter to skip.";
+    case "bio": return "short bio for the token? one or two sentences, or hit enter to skip.";
+    case "x": return "X / twitter? paste @handle or a link, or hit enter to skip.";
+    case "github": return "GitHub? paste @handle or a link, or hit enter to skip.";
+    case "telegram": return "Telegram? paste @handle or a t.me link, or hit enter to skip.";
     case "confirm":
-      return `review → ${d.name} ($${d.symbol})  fee ${d.base}%/${d.max}%  recv ${RECV[d.receive ?? 0]}  start mc $${d.mc}${d.image ? "  img" : ""}${d.x ? "  x" : ""}${d.website ? "  web" : ""}\n        type \`yes\` to deploy, \`back\` to fix, \`cancel\` to abort.`;
+      return `review → [${rh ? "robinhood" : "base"}] ${d.name} ($${d.symbol})  fee ${d.base}%${rh ? "" : `/${d.max}%`}${rh ? "" : `  recv ${RECV[d.receive ?? 0]}`}  ${rh ? "grad" : "start"} mc $${d.mc}${d.image ? "  img" : ""}${d.bio ? "  bio" : ""}${d.x ? "  x" : ""}${d.github ? "  gh" : ""}${d.telegram ? "  tg" : ""}\n        type \`yes\` to deploy, \`back\` to fix, \`cancel\` to abort.`;
   }
 }
 
@@ -54,22 +72,26 @@ function parseArgs(s: string): Record<string, string> {
 
 const TOOLBAR: { label: string; fill?: string; exec?: string }[] = [
   { label: "guided launch", exec: "launch" },
+  { label: "connect", exec: "connect" },
+  { label: "register", fill: "register your-agent-name" },
   { label: "help", exec: "help" },
   { label: "balance", exec: "balance" },
-  { label: "fee", fill: "fee --base 3 --max 5" },
   { label: "clear", exec: "clear" },
 ];
 
 export default function DeployTerminal() {
   const { address, isConnected } = useAccount();
   const { data: bal } = useBalance({ address });
+  const { connectors, connectAsync } = useConnect();
+  const { signMessageAsync } = useSignMessage();
   const { launch, busy } = useLaunch();
   const [lines, setLines] = useState<Line[]>([
-    { t: "bot", s: "gm. i'm beryl. type `launch` and i'll walk you through it, or `help` for raw commands." },
+    { t: "bot", s: "gm. i'm beryl. type `launch` and i'll walk you through it — base or robinhood chain. `help` for raw commands." },
   ]);
   const [val, setVal] = useState("");
   const [wiz, setWiz] = useState<{ step: Step; draft: Draft } | null>(null);
   const [ethUsd, setEthUsd] = useState(ETH_USD_FALLBACK);
+  const [agentName, setAgentName] = useState<string>("");
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const push = (ls: Line[]) => setLines((p) => [...p, ...ls]);
@@ -77,34 +99,77 @@ export default function DeployTerminal() {
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [lines]);
   useEffect(() => { getEthUsd().then(setEthUsd); }, []);
+  useEffect(() => {
+    if (!address) { setAgentName(""); return; }
+    getAgents().then((m) => setAgentName(m[address.toLowerCase()] || ""));
+  }, [address]);
+
+  async function doConnect() {
+    if (isConnected) { push([{ t: "ok", s: `already connected — ${address}` }]); return; }
+    const injected = connectors.find((c) => c.id === "injected") ?? connectors[0];
+    if (!injected) { push([{ t: "err", s: "no wallet connector available" }]); return; }
+    push([{ t: "out", s: "› requesting wallet connection…" }]);
+    try {
+      const res = await connectAsync({ connector: injected });
+      const a = res.accounts[0];
+      push([{ t: "ok", s: `✓ connected — ${a}` }]);
+      const agents = await getAgents();
+      const nm = agents[a.toLowerCase()];
+      if (nm) { setAgentName(nm); say(`welcome back, agent ${nm}.`); }
+      else say("next: `register <name>` to deploy as a named agent, or go straight to `launch`.");
+    } catch (e: any) {
+      push([{ t: "err", s: `✕ ${e?.shortMessage || e?.message || "connection rejected"}` }]);
+    }
+  }
+
+  async function doRegister(name: string) {
+    if (!isConnected || !address) { push([{ t: "err", s: "connect first — run `connect`." }]); return; }
+    if (!name) { push([{ t: "err", s: "usage: register <name>   (3-24 chars)" }]); return; }
+    push([{ t: "out", s: `› registering agent "${name}" — sign the message in your wallet…` }]);
+    try {
+      const sig = await signMessageAsync({ message: registerMessage(name, address) });
+      const res = await registerAgent(address, name, sig);
+      if (!res.ok) { push([{ t: "err", s: `✕ ${res.error || "registration failed"}` }]); return; }
+      setAgentName(name);
+      push([{ t: "ok", s: `✓ registered — your launches now show as "by ${name}" with the agent badge.` }]);
+    } catch (e: any) {
+      push([{ t: "err", s: `✕ ${e?.shortMessage || e?.message || "signature rejected"}` }]);
+    }
+  }
 
   function startWizard() {
-    if (!isConnected) { push([{ t: "err", s: "connect a wallet first (top right), then run `launch`." }]); return; }
-    const w = { step: "name" as Step, draft: {} as Draft };
+    if (!isConnected) { push([{ t: "err", s: "connect a wallet first — run `connect`." }]); return; }
+    const w = { step: "chain" as Step, draft: {} as Draft };
     setWiz(w);
-    say(prompt("name", w.draft));
+    if (!agentName) say("tip: `cancel` then `register <name>` if you want this launch credited to an agent name.");
+    say(prompt("chain", w.draft));
   }
 
   async function finishWizard(d: Draft) {
     setWiz(null);
+    const rh = d.venue === "robinhood";
     const input: LaunchInput = {
       name: d.name!, symbol: (d.symbol || "").toUpperCase(),
       startMcUsd: d.mc ?? 10000, ethUsd,
       baseFeePct: d.base ?? 3, maxFeePct: d.max ?? d.base ?? 5,
       feeReceiveType: d.receive ?? 0,
-      imageUrl: d.image ?? "", x: d.x ?? "", website: d.website ?? "",
+      venue: d.venue ?? "base",
+      imageUrl: d.image ?? "", description: d.bio ?? "",
+      x: d.x ?? "", github: d.github ?? "", telegram: d.telegram ?? "",
     };
     if (input.maxFeePct < input.baseFeePct) input.maxFeePct = input.baseFeePct;
-    push([{ t: "out", s: "› deploying B20 token… (confirm in your wallet)" }]);
+    push([{ t: "out", s: `› deploying on ${rh ? "Robinhood Chain" : "Base"}… (confirm in your wallet)` }]);
     try {
       const tok = await launch(input);
       push([
         { t: "ok", s: `✓ deployed — CA ${tok}` },
-        { t: "ok", s: "  native B20 · admin-less · not mintable · no transfer tax" },
-        { t: "bot", s: "open the token page for the live chart + buy/sell:", href: `/token/${tok}` },
-        { t: "dim", s: `  explorer: ${EXPLORER}/token/${tok}` },
+        rh
+          ? { t: "ok", s: "  bonding curve live · graduates to Uniswap v3 at the cap" }
+          : { t: "ok", s: "  native B20 · admin-less · not mintable · no transfer tax" },
+        { t: "bot", s: "open the token page:", href: `/token/${tok}` },
+        { t: "dim", s: `  explorer: ${rh ? RH.explorer : EXPLORER}/token/${tok}` },
       ]);
-      say("done. it's tradable right now.");
+      say(agentName ? `done, agent ${agentName}. it's live on the feed.` : "done. it's live on the feed.");
     } catch (e: any) {
       push([{ t: "err", s: `✕ ${e?.shortMessage || e?.message || "launch failed"}` }]);
       say("no worries, nothing was spent. run `launch` to try again.");
@@ -121,7 +186,9 @@ export default function DeployTerminal() {
     }
     if (low === "back") {
       const idx = ORDER.indexOf(w.step);
-      const prev = ORDER[Math.max(0, idx - 1)];
+      let prev = ORDER[Math.max(0, idx - 1)];
+      // robinhood path skips the receive step
+      if (prev === "receive" && w.draft.venue === "robinhood") prev = "fee";
       const nw = { step: prev, draft: w.draft };
       setWiz(nw); say(prompt(prev, nw.draft)); return;
     }
@@ -130,6 +197,11 @@ export default function DeployTerminal() {
     let next: Step | null = null;
 
     switch (w.step) {
+      case "chain": {
+        const v: VenueId = low.startsWith("rob") || low === "rh" ? "robinhood" : "base";
+        if (v === "robinhood" && !rhLive) { say("robinhood chain isn't live on b20factory yet — launching on `base` for now, or `cancel`."); return; }
+        d.venue = v; next = "name"; break;
+      }
       case "name":
         if (!s) { say("give it a name first — anything works."); return; }
         d.name = s.slice(0, 32); next = "symbol"; break;
@@ -146,7 +218,7 @@ export default function DeployTerminal() {
           b = Math.min(5, Math.max(0, b)); m = Math.min(5, Math.max(b, m));
           d.base = b; d.max = m;
         }
-        next = "receive"; break;
+        next = d.venue === "robinhood" ? "mc" : "receive"; break;
       }
       case "receive": {
         const t = low === "token" || low === "1" ? 1 : low === "both" || low === "2" ? 2 : 0;
@@ -163,12 +235,18 @@ export default function DeployTerminal() {
       }
       case "image":
         d.image = s ? s : "";
+        next = "bio"; break;
+      case "bio":
+        d.bio = s ? s.slice(0, 280) : "";
         next = "x"; break;
       case "x":
         d.x = s ? s : "";
-        next = "website"; break;
-      case "website":
-        d.website = s ? s : "";
+        next = "github"; break;
+      case "github":
+        d.github = s ? s : "";
+        next = "telegram"; break;
+      case "telegram":
+        d.telegram = s ? s : "";
         next = "confirm"; break;
       case "confirm":
         if (low === "yes" || low === "y" || low === "deploy" || low === "ship") { finishWizard(d); return; }
@@ -194,13 +272,20 @@ export default function DeployTerminal() {
       return;
     }
 
-    const [name] = cmd.split(/\s+/);
+    const [name, ...rest] = cmd.split(/\s+/);
     const args = parseArgs(cmd);
 
     if (name === "clear") { setLines([]); return; }
     if (name === "help") { push(HELP.map((s) => ({ t: "out" as const, s }))); return; }
     if (name === "cancel") { say("nothing to cancel."); return; }
-    if (name === "gm" || name === "hi" || name === "hello") { say("gm. ready when you are — type `launch`."); return; }
+    if (name === "gm" || name === "hi" || name === "hello") { say(agentName ? `gm, agent ${agentName}. type \`launch\` when ready.` : "gm. ready when you are — type `connect`, then `launch`."); return; }
+    if (name === "connect") { doConnect(); return; }
+    if (name === "register") { doRegister(rest.join(" ").trim().slice(0, 24)); return; }
+    if (name === "agent") {
+      if (!isConnected) { push([{ t: "err", s: "no wallet connected — run `connect`." }]); return; }
+      push([{ t: agentName ? "ok" : "out", s: agentName ? `agent ${agentName} (${address})` : "no agent name yet — run `register <name>`." }]);
+      return;
+    }
     if (name === "balance") {
       push([{ t: isConnected ? "ok" : "err", s: isConnected ? `${Number(bal?.formatted || 0).toFixed(5)} ${bal?.symbol || "ETH"}  (${address})` : "no wallet connected" }]);
       return;
@@ -217,27 +302,33 @@ export default function DeployTerminal() {
     if (name === "launch") {
       // no flags → guided; flags → one-shot
       if (!args.name && !args.symbol) { startWizard(); return; }
-      if (!isConnected) { push([{ t: "err", s: "connect a wallet first (top right)" }]); return; }
-      if (!args.name || !args.symbol) { push([{ t: "err", s: 'usage: launch --name "My Token" --symbol MTK [--base 3] [--max 5] [--mc 10000] [--image <url>]  — or just `launch` for guided mode' }]); return; }
+      if (!isConnected) { push([{ t: "err", s: "connect a wallet first — run `connect`" }]); return; }
+      if (!args.name || !args.symbol) { push([{ t: "err", s: 'usage: launch --name "My Token" --symbol MTK [--chain base|robinhood] [--base 3] [--max 5] [--mc 10000] [--image <url>]  — or just `launch` for guided mode' }]); return; }
+      const venue: VenueId = (args.chain || "").toLowerCase().startsWith("rob") ? "robinhood" : "base";
+      if (venue === "robinhood" && !rhLive) { push([{ t: "err", s: "robinhood chain isn't live on b20factory yet" }]); return; }
       const input: LaunchInput = {
         name: args.name, symbol: args.symbol.toUpperCase(),
         startMcUsd: Number(args.mc ?? 10000), ethUsd,
         baseFeePct: Number(args.base ?? 3), maxFeePct: Number(args.max ?? args.base ?? 5),
         feeReceiveType: args.receive === "token" ? 1 : args.receive === "both" ? 2 : 0,
-        imageUrl: args.image ?? "",
+        venue,
+        imageUrl: args.image ?? "", description: args.bio ?? "",
+        x: args.x ?? "", github: args.github ?? "", telegram: args.tg ?? args.telegram ?? "",
       };
       if (input.maxFeePct < input.baseFeePct) input.maxFeePct = input.baseFeePct;
       push([
-        { t: "dim", s: `  base ${input.baseFeePct}% / max ${input.maxFeePct}% · start mc $${input.startMcUsd} · 20% vested${input.imageUrl ? " · image set" : ""}` },
-        { t: "out", s: "› deploying B20 token… (confirm in wallet)" },
+        { t: "dim", s: `  [${venue}] base ${input.baseFeePct}%${venue === "base" ? ` / max ${input.maxFeePct}%` : ""} · mc $${input.startMcUsd} · 20% vested${input.imageUrl ? " · image set" : ""}` },
+        { t: "out", s: `› deploying on ${venue === "robinhood" ? "Robinhood Chain" : "Base"}… (confirm in wallet)` },
       ]);
       try {
         const tok = await launch(input);
         push([
           { t: "ok", s: `✓ deployed — CA ${tok}` },
-          { t: "ok", s: "  native B20 · admin-less · not mintable · no transfer tax" },
-          { t: "bot", s: "open the token page for the live chart + buy/sell:", href: `/token/${tok}` },
-          { t: "dim", s: `  explorer: ${EXPLORER}/token/${tok}` },
+          venue === "robinhood"
+            ? { t: "ok", s: "  bonding curve live · graduates to Uniswap v3 at the cap" }
+            : { t: "ok", s: "  native B20 · admin-less · not mintable · no transfer tax" },
+          { t: "bot", s: "open the token page:", href: `/token/${tok}` },
+          { t: "dim", s: `  explorer: ${venue === "robinhood" ? RH.explorer : EXPLORER}/token/${tok}` },
         ]);
       } catch (e: any) {
         push([{ t: "err", s: `✕ ${e?.shortMessage || e?.message || "launch failed"}` }]);
@@ -252,14 +343,16 @@ export default function DeployTerminal() {
     else if (item.fill) { setVal(item.fill); setTimeout(() => inputRef.current?.focus(), 0); }
   }
 
-  const placeholder = busy ? "deploying…" : wiz ? `${wiz.step}…  (or \`cancel\`)` : 'launch  ·  or  launch --name "Beryl Cat" --symbol BCAT';
+  const placeholder = busy ? "deploying…" : wiz ? `${wiz.step}…  (or \`cancel\`)` : 'connect  ·  register <name>  ·  launch';
 
   return (
     <div className="console font-mono">
       <div className="console-bar">
         <span className="console-dot" /><span className="console-dot" /><span className="console-dot" />
         <span className="ml-2 text-xs">beryl — interactive launch</span>
-        <span className="ml-auto text-[11px]">{wiz ? "guiding" : isConnected ? "connected" : "offline"}</span>
+        <span className="ml-auto text-[11px]">
+          {wiz ? "guiding" : isConnected ? (agentName ? `agent ${agentName}` : "connected") : "offline"}
+        </span>
       </div>
 
       {/* quick-action toolbar */}

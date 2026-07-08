@@ -8,6 +8,9 @@ import { ADDR, NFT_ABI, ERC20_ABI, FACTORY_ABI, ROUTER_ABI, HOOK_ABI, VESTING_AB
 import { ACTIVE_CHAIN } from "@/lib/wagmi";
 import PriceChart from "@/components/PriceChart";
 import { getTokenMeta } from "@/lib/tokenMeta";
+import RobinhoodToken from "@/components/RobinhoodToken";
+import { RH, RH_FACTORY_ABI, rhLive, robinhoodChain } from "@/lib/chains";
+import { createPublicClient, http } from "viem";
 
 type TokenInfo = {
   name: string;
@@ -47,8 +50,32 @@ export default function TokenPage() {
   const [swapErr, setSwapErr] = useState("");
   const [swapMsg, setSwapMsg] = useState("");
 
+  // Which chain is this token on? Robinhood tokens render a separate view.
+  // "unknown" until decided; "base" | "robinhood" once resolved.
+  const [venue, setVenue] = useState<"unknown" | "base" | "robinhood">("unknown");
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      // fast path: off-chain meta records the venue for every app/terminal launch
+      const meta = await getTokenMeta(tokenAddr).catch(() => null);
+      if (!alive) return;
+      if (meta?.venue === "robinhood") { setVenue("robinhood"); return; }
+      if (meta?.venue === "base") { setVenue("base"); return; }
+      // fallback: if it isn't in the Base factory but is on the RH factory, it's RH
+      if (rhLive) {
+        try {
+          const rhc = createPublicClient({ chain: robinhoodChain, transport: http(RH.rpcProxy) });
+          const l = await rhc.readContract({ address: RH.factory, abi: RH_FACTORY_ABI, functionName: "launchOf", args: [tokenAddr] }) as readonly [string, string, string, string, string, number];
+          if (alive && l && l[0] && l[0] !== "0x0000000000000000000000000000000000000000") { setVenue("robinhood"); return; }
+        } catch {}
+      }
+      if (alive) setVenue("base");
+    })();
+    return () => { alive = false; };
+  }, [tokenAddr]);
+
   const load = useCallback(async () => {
-    if (!pub) return;
+    if (!pub || venue !== "base") return;
     try {
       const [name, symbol] = await Promise.all([
         pub.readContract({ address: tokenAddr, abi: ERC20_ABI, functionName: "name" }),
@@ -115,7 +142,7 @@ export default function TokenPage() {
     setLoading(false);
   }, [pub, tokenAddr, wallet]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (venue === "base") load(); }, [load, venue]);
 
   async function distribute() {
     if (!wc || !info?.splitter || info.splitter === "0x") return;
@@ -191,7 +218,8 @@ export default function TokenPage() {
 
   function short(a: string) { return a ? a.slice(0, 8) + "…" + a.slice(-6) : ""; }
 
-  if (loading) return (
+  if (venue === "robinhood") return <RobinhoodToken token={tokenAddr} />;
+  if (venue === "unknown" || loading) return (
     <main className="wrap py-16 text-muted">Loading token…</main>
   );
   if (!info) return (

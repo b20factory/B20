@@ -2,9 +2,14 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePublicClient } from "wagmi";
-import { formatEther, keccak256, encodeAbiParameters } from "viem";
-import { ADDR, ERC20_ABI, FACTORY_ABI, POOL_FEE, POOL_TICK_SPACING, IS_TESTNET } from "@/lib/contracts";
+import { formatEther, keccak256, encodeAbiParameters, createPublicClient, http } from "viem";
+import { base as baseChain, baseSepolia } from "viem/chains";
+import { ADDR, CHAIN_ID, ERC20_ABI, FACTORY_ABI, POOL_FEE, POOL_TICK_SPACING, IS_TESTNET } from "@/lib/contracts";
+import { RH, RH_FACTORY_ABI, RH_CURVE_ABI, rhLive, robinhoodChain, type VenueId } from "@/lib/chains";
+import { ChainBadge, BaseLogo, RobinhoodLogo } from "@/components/ChainLogo";
 import { getAllTokenMeta, type TokenMeta } from "@/lib/tokenMeta";
+import { getAgents, shortAddr } from "@/lib/agents";
+import { isHidden } from "@/lib/hidden";
 import { getEthUsd, ETH_USD_FALLBACK } from "@/lib/ethPrice";
 
 const ZERO = "0x0000000000000000000000000000000000000000";
@@ -41,6 +46,8 @@ function absI128(n: bigint): bigint { return n < 0n ? -n : n; }
 
 type Card = {
   token: `0x${string}`;
+  venue: VenueId;       // which chain the token launched on
+  creator: string;      // deployer address ("" if unknown)
   name: string;
   symbol: string;
   image: string;
@@ -73,42 +80,107 @@ export default function Explore() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("trending");
   const [search, setSearch] = useState("");
+  const [chain, setChain] = useState<"all" | VenueId>("all");
   const [ethUsd, setEthUsd] = useState(ETH_USD_FALLBACK);
+  const [agents, setAgents] = useState<Record<string, string>>({});
 
   useEffect(() => { getEthUsd().then(setEthUsd); }, []);
+  useEffect(() => { getAgents().then(setAgents); }, []);
 
   const load = useCallback(async () => {
     if (!pub) return;
-    try {
-      const addrs = await pub.readContract({ address: ADDR.tokenFactory, abi: FACTORY_ABI, functionName: "getAllTokens" }) as `0x${string}`[];
-      const meta = await getAllTokenMeta();
+    const meta = await getAllTokenMeta();
 
-      // base cards (name/symbol on-chain, image/socials off-chain)
-      const base: Card[] = [];
-      for (let i = 0; i < addrs.length; i++) {
-        const tok = addrs[i];
+    // base cards (name/symbol on-chain, image/socials off-chain). Read through an
+    // explicit client bound to the active Base chain so this never depends on the
+    // ambient wallet chain — and keep it in its own try so a base failure can't
+    // stop the Robinhood read below.
+    const base: Card[] = [];
+    const baseClient = createPublicClient({
+      chain: CHAIN_ID === 8453 ? baseChain : baseSepolia,
+      // Mainnet reads go through the keyed same-origin proxy; the testnet factory
+      // only exists on Sepolia, so read Sepolia directly (the proxy is mainnet).
+      transport: CHAIN_ID === 8453 && typeof window !== "undefined"
+        ? http("/api/rpc")
+        : http(),
+    });
+    try {
+      const allAddrs = await baseClient.readContract({ address: ADDR.tokenFactory, abi: FACTORY_ABI, functionName: "getAllTokens" }) as `0x${string}`[];
+      // Drop delisted test/dummy tokens before doing any per-token work.
+      const addrs = allAddrs.filter((a) => !isHidden(a));
+      // Read every token's name/symbol in one parallel burst instead of a serial
+      // loop, so N tokens cost one round-trip's worth of wall-clock, not N.
+      const rows = await Promise.all(addrs.map(async (tok, i) => {
         try {
           const [nameRaw, symbolRaw] = await Promise.all([
-            pub.readContract({ address: tok, abi: ERC20_ABI, functionName: "name" }),
-            pub.readContract({ address: tok, abi: ERC20_ABI, functionName: "symbol" }),
+            baseClient.readContract({ address: tok, abi: ERC20_ABI, functionName: "name" }),
+            baseClient.readContract({ address: tok, abi: ERC20_ABI, functionName: "symbol" }),
           ]);
           const m: TokenMeta | undefined = meta[tok.toLowerCase()];
-          base.push({
-            token: tok, name: String(nameRaw), symbol: String(symbolRaw),
+          return {
+            token: tok, venue: "base" as const, creator: m?.creator || "",
+            name: String(nameRaw), symbol: String(symbolRaw),
             image: m?.image || "", x: m?.x, idx: i,
             priceEth: 0, mcapEth: 0, changePct: null, volEth: 0, trades: 0,
             earnedEth: 0, series: [],
-          });
+          } as Card;
+        } catch { return null; }
+      }));
+      for (const r of rows) if (r) base.push(r);
+    } catch {}
+
+    try {
+      // robinhood chain cards — separate factory, read through the same-origin
+      // proxy. Price comes straight off the bonding curve.
+      const rhCards: Card[] = [];
+      if (rhLive) {
+        try {
+          const rhc = createPublicClient({ chain: robinhoodChain, transport: http(RH.rpcProxy) });
+          const n = Number(await rhc.readContract({ address: RH.factory, abi: RH_FACTORY_ABI, functionName: "tokensCount" }));
+          const idxs = Array.from({ length: n }, (_, i) => i);
+          const built = await Promise.all(idxs.map(async (i) => {
+            try {
+              const tok = await rhc.readContract({ address: RH.factory, abi: RH_FACTORY_ABI, functionName: "allTokens", args: [BigInt(i)] }) as `0x${string}`;
+              const [nameRaw, symbolRaw, launch] = await Promise.all([
+                rhc.readContract({ address: tok, abi: ERC20_ABI, functionName: "name" }),
+                rhc.readContract({ address: tok, abi: ERC20_ABI, functionName: "symbol" }),
+                rhc.readContract({ address: RH.factory, abi: RH_FACTORY_ABI, functionName: "launchOf", args: [tok] }) as Promise<readonly [string, string, string, string, string, number]>,
+              ]);
+              const curve = launch[1] as `0x${string}`;
+              const creator = String(launch[3] || "");
+              let priceEth = 0;
+              try {
+                const px = await rhc.readContract({ address: curve, abi: RH_CURVE_ABI, functionName: "priceX18" }) as bigint;
+                priceEth = Number(formatEther(px));
+              } catch {}
+              const m: TokenMeta | undefined = meta[tok.toLowerCase()];
+              return {
+                token: tok, venue: "robinhood" as const, creator: (m?.creator || creator).toLowerCase(),
+                name: String(nameRaw), symbol: String(symbolRaw),
+                image: m?.image || "", x: m?.x, idx: 100_000 + i,
+                priceEth, mcapEth: priceEth * 1_000_000_000, changePct: null,
+                volEth: 0, trades: 0, earnedEth: 0, series: [],
+              } as Card;
+            } catch { return null; }
+          }));
+          for (const r of built) if (r) rhCards.push(r);
         } catch {}
       }
-      setCards(base.slice().reverse());
 
+      setCards([...base, ...rhCards].slice().sort((a, b) => b.idx - a.idx));
+      // Cards are on screen now — drop the "Scanning…" spinner and let the
+      // heavier price/volume/fees enrichment below fill in behind them.
+      setLoading(false);
+
+      // Everything below is best-effort enrichment on the SAME explicit Base
+      // client the cards were read from — never the ambient wagmi client, which
+      // may point at the wrong chain and fire wasted, slow calls.
       // earned fees per token — splitter ETH balance (best-effort, parallel)
       const splitters = await Promise.all(base.map((c) =>
-        pub.readContract({ address: ADDR.tokenFactory, abi: FACTORY_ABI, functionName: "tokenToSplitter", args: [c.token] }).catch(() => ZERO as `0x${string}`)
+        baseClient.readContract({ address: ADDR.tokenFactory, abi: FACTORY_ABI, functionName: "tokenToSplitter", args: [c.token] }).catch(() => ZERO as `0x${string}`)
       ));
       const earnedWei = await Promise.all(splitters.map((s) =>
-        s && s !== ZERO ? pub.getBalance({ address: s as `0x${string}` }).catch(() => 0n) : Promise.resolve(0n)
+        s && s !== ZERO ? baseClient.getBalance({ address: s as `0x${string}` }).catch(() => 0n) : Promise.resolve(0n)
       ));
       const earnedByTok: Record<string, number> = {};
       base.forEach((c, i) => { earnedByTok[c.token.toLowerCase()] = Number(formatEther(earnedWei[i])); });
@@ -120,12 +192,14 @@ export default function Explore() {
         const idToTok: Record<string, `0x${string}`> = {};
         for (const c of base) idToTok[poolIdFor(c.token).toLowerCase()] = c.token;
 
-        const latest = await pub.getBlockNumber();
+        const latest = await baseClient.getBlockNumber();
         const step = 4500n;
         let end = latest;
-        for (let i = 0; i < 8; i++) {
+        // 4 chunks is enough for a recent sparkline; the old 8-chunk scan just
+        // hammered the RPC and made the tab feel slow with nothing to show.
+        for (let i = 0; i < 4; i++) {
           const start = end > step ? end - step : 0n;
-          const logs = await pub.getLogs({ address: POOL_MANAGER, event: SWAP_EVENT, fromBlock: start, toBlock: end }).catch(() => [] as any[]);
+          const logs = await baseClient.getLogs({ address: POOL_MANAGER, event: SWAP_EVENT, fromBlock: start, toBlock: end }).catch(() => [] as any[]);
           // logs come oldest->newest within the chunk; we walk chunks newest->oldest,
           // so prepend each chunk to keep the series chronological
           const perPool: Record<string, { prices: number[]; vol: number; n: number }> = {};
@@ -168,13 +242,27 @@ export default function Explore() {
 
   useEffect(() => { load(); }, [load]);
 
+  const chainScoped = useMemo(
+    () => (chain === "all" ? cards : cards.filter((c) => c.venue === chain)),
+    [cards, chain]
+  );
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return cards;
+    if (!q) return chainScoped;
     // search by contract address (CA) as well as name / ticker
-    if (q.startsWith("0x") && q.length >= 6) return cards.filter((c) => c.token.toLowerCase().includes(q));
-    return cards.filter((c) => c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q));
-  }, [cards, search]);
+    if (q.startsWith("0x") && q.length >= 6) return chainScoped.filter((c) => c.token.toLowerCase().includes(q));
+    return chainScoped.filter((c) => c.name.toLowerCase().includes(q) || c.symbol.toLowerCase().includes(q));
+  }, [chainScoped, search]);
+
+  // headline stats across everything on the board
+  const stats = useMemo(() => {
+    const baseN = cards.filter((c) => c.venue === "base").length;
+    const rhN = cards.filter((c) => c.venue === "robinhood").length;
+    const vol = cards.reduce((s, c) => s + c.volEth, 0);
+    const live = cards.filter((c) => c.trades > 0).length;
+    return { total: cards.length, baseN, rhN, vol, live };
+  }, [cards]);
 
   const newest = useMemo(() => [...filtered].sort((a, b) => b.idx - a.idx), [filtered]);
   const trending = useMemo(() => [...filtered].sort((a, b) => b.volEth - a.volEth || b.trades - a.trades || b.idx - a.idx), [filtered]);
@@ -190,43 +278,108 @@ export default function Explore() {
     </button>
   );
 
+  const chainTab = (id: "all" | VenueId, label: string, count?: number) => (
+    <button
+      key={id}
+      onClick={() => setChain(id)}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all ${
+        chain === id
+          ? "border-beryl/40 bg-beryl/10 text-beryl"
+          : "border-line text-muted hover:text-text hover:border-line"
+      }`}
+    >
+      {id === "base" && <BaseLogo size={13} />}
+      {id === "robinhood" && <RobinhoodLogo size={13} />}
+      {label}
+      {typeof count === "number" && <span className="text-[11px] opacity-70">{count}</span>}
+    </button>
+  );
+
   return (
     <main className="pb-16">
       <Ticker cards={newest} />
 
-      <div className="wrap py-8">
-        <div className="flex flex-wrap items-end gap-3 mb-6">
-          <div>
-            <p className="h-sec mb-1.5">Explore</p>
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-text">Discover B20 launches</h1>
+      {/* Hero header */}
+      <div className="relative overflow-hidden border-b border-line">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.55]"
+          style={{ background: "radial-gradient(120% 100% at 15% -10%, rgba(37,99,235,0.16), transparent 55%), radial-gradient(120% 120% at 100% 0%, rgba(0,200,5,0.12), transparent 50%)" }}
+        />
+        <div className="wrap relative py-9">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="min-w-0">
+              <p className="h-sec mb-2">Explore</p>
+              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight text-text">
+                Two chains. One feed.
+              </h1>
+              <p className="mt-2 text-sm sm:text-[15px] text-muted max-w-xl leading-relaxed">
+                Every native B20 on Base and every launch on Robinhood Chain, live as they deploy.
+              </p>
+            </div>
+            <div className="ml-auto flex items-center gap-2.5">
+              <Link href="/app" className="btn-primary">Launch a token</Link>
+            </div>
           </div>
-          <div className="ml-auto flex items-center gap-3">
-            {IS_TESTNET && <span className="chip border-warn/30 text-warn text-[11px]">Testnet</span>}
-            <Link href="/app" className="btn-primary">Launch</Link>
+
+          {/* live stats — per-chain status shown on the Base / Robinhood tiles */}
+          <div className="mt-7 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: "Launches", value: loading ? "…" : stats.total.toLocaleString() },
+              { label: "On Base", value: loading ? "…" : stats.baseN.toLocaleString(), logo: "base" as const, status: IS_TESTNET ? { text: "Sepolia · testnet", tone: "warn" as const } : { text: "mainnet · live", tone: "live" as const } },
+              { label: "On Robinhood", value: loading ? "…" : stats.rhN.toLocaleString(), logo: "robinhood" as const, status: { text: "mainnet · live", tone: "live" as const } },
+              { label: "Live trading", value: loading ? "…" : stats.live.toLocaleString() },
+            ].map((s) => (
+              <div key={s.label} className="rounded-xl border border-line bg-panel/70 px-4 py-3 backdrop-blur-sm">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                  {s.logo === "base" && <BaseLogo size={11} />}
+                  {s.logo === "robinhood" && <RobinhoodLogo size={11} />}
+                  {s.label}
+                </div>
+                <div className="mt-0.5 text-xl font-semibold tracking-tight text-text font-mono tabular">{s.value}</div>
+                {s.status && (
+                  <div className={`mt-1 inline-flex items-center gap-1 text-[10px] font-medium ${s.status.tone === "live" ? "text-[#00C805]" : "text-warn"}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${s.status.tone === "live" ? "bg-[#00C805]" : "bg-warn"}`} />
+                    {s.status.text}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
+        </div>
+      </div>
+
+      <div className="wrap py-7">
+        {/* chain filter + search */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {chainTab("all", "All", loading ? undefined : stats.total)}
+          {chainTab("base", "Base", loading ? undefined : stats.baseN)}
+          {chainTab("robinhood", "Robinhood", loading ? undefined : stats.rhN)}
         </div>
 
         <input className="input w-full mb-6" placeholder="Search by name, ticker, or contract address (0x…)" value={search} onChange={(e) => setSearch(e.target.value)} />
 
         {loading ? (
-          <div className="term p-10 text-center text-muted">Scanning the chain…</div>
-        ) : cards.length === 0 ? (
+          <div className="term p-10 text-center text-muted">Scanning the chains…</div>
+        ) : chainScoped.length === 0 ? (
           <div className="term p-10 text-center">
-            <div className="text-text font-medium mb-1">No tokens launched yet</div>
-            <p className="text-sm text-muted mb-5">Be the first to deploy a native B20.</p>
+            <div className="text-text font-medium mb-1">
+              {chain === "robinhood" ? "No Robinhood Chain launches yet" : chain === "base" ? "No Base launches yet" : "No tokens launched yet"}
+            </div>
+            <p className="text-sm text-muted mb-5">Be the first to deploy here.</p>
             <Link href="/app" className="btn-primary">Launch a token</Link>
           </div>
         ) : search ? (
-          <Grid items={list} ethUsd={ethUsd} />
+          <Grid items={list} ethUsd={ethUsd} agents={agents} />
         ) : (
           <div className="space-y-9">
-            {featured.length > 0 && <Rail title="Featured" subtitle="Most active right now" items={featured} ethUsd={ethUsd} />}
+            {featured.length > 0 && <Rail title="Featured" subtitle="Most active right now" items={featured} ethUsd={ethUsd} agents={agents} />}
             <div className="inline-flex rounded-lg bg-panel2 p-1">
               {tabBtn("trending", "Trending")}
               {tabBtn("new", "New")}
               {tabBtn("live", "Live")}
             </div>
-            <Grid items={list} ethUsd={ethUsd} />
+            <Grid items={list} ethUsd={ethUsd} agents={agents} />
           </div>
         )}
       </div>
@@ -236,14 +389,18 @@ export default function Explore() {
 
 // scrolling activity ticker built from recent launches / trades
 function Ticker({ cards }: { cards: Card[] }) {
+  // Real board data only: one line per real token. Traded tokens show live
+  // change + volume; the rest show which chain they're listed on. No invented
+  // activity, no repeated "just launched" filler.
   const events = cards.length
-    ? cards.flatMap((c) => {
-        const out: string[] = [];
-        if (c.trades > 0) out.push(`$${c.symbol} ${pct(c.changePct ?? 0)} · ${fmtEth(c.volEth)} ETH vol`);
-        else out.push(`$${c.symbol} just launched`);
-        return out;
-      }).slice(0, 24)
-    : ["B20factory — native token launchpad on Base Beryl"];
+    ? cards.map((c) => {
+        const chain = c.venue === "robinhood" ? "Robinhood" : "Base";
+        if (c.trades > 0) return `$${c.symbol} ${pct(c.changePct ?? 0)} · ${fmtEth(c.volEth)} ETH vol`;
+        return `$${c.symbol} · listed on ${chain}`;
+      })
+    : ["B20factory — native token launchpad on Base + Robinhood Chain"];
+  // Duplicate only to fill the marquee width for a seamless scroll — the data
+  // itself is not repeated as separate events.
   const items = [...events, ...events, ...events];
   return (
     <div className="border-b border-line bg-panel py-2 overflow-hidden select-none">
@@ -289,7 +446,7 @@ function usd(n: number, ethUsd: number): string {
 }
 
 // horizontal swipeable rail
-function Rail({ title, subtitle, items, ethUsd }: { title: string; subtitle?: string; items: Card[]; ethUsd: number }) {
+function Rail({ title, subtitle, items, ethUsd, agents }: { title: string; subtitle?: string; items: Card[]; ethUsd: number; agents: Record<string, string> }) {
   const scroller = useRef<HTMLDivElement>(null);
   if (!items.length) return null;
   const nudge = (d: number) => scroller.current?.scrollBy({ left: d * 300, behavior: "smooth" });
@@ -307,25 +464,26 @@ function Rail({ title, subtitle, items, ethUsd }: { title: string; subtitle?: st
       </div>
       <div ref={scroller} className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide snap-x">
         {items.map((c) => (
-          <div key={c.token} className="w-64 shrink-0 snap-start"><CardEl c={c} ethUsd={ethUsd} /></div>
+          <div key={c.token} className="w-64 shrink-0 snap-start"><CardEl c={c} ethUsd={ethUsd} agents={agents} /></div>
         ))}
       </div>
     </section>
   );
 }
 
-function Grid({ items, ethUsd }: { items: Card[]; ethUsd: number }) {
+function Grid({ items, ethUsd, agents }: { items: Card[]; ethUsd: number; agents: Record<string, string> }) {
   if (!items.length) return <div className="term p-8 text-center text-muted">nothing here yet</div>;
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {items.map((c) => <CardEl key={c.token} c={c} ethUsd={ethUsd} />)}
+      {items.map((c) => <CardEl key={c.token} c={c} ethUsd={ethUsd} agents={agents} />)}
     </div>
   );
 }
 
-function CardEl({ c, ethUsd }: { c: Card; ethUsd: number }) {
+function CardEl({ c, ethUsd, agents }: { c: Card; ethUsd: number; agents: Record<string, string> }) {
   const up = (c.changePct ?? 0) >= 0;
   const traded = c.trades > 0;
+  const agent = c.creator ? agents[c.creator.toLowerCase()] : undefined;
   return (
     <div className="card-hover group p-4">
       <Link href={`/token/${c.token}`} className="flex items-start gap-3">
@@ -337,9 +495,20 @@ function CardEl({ c, ethUsd }: { c: Card; ethUsd: number }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="font-medium text-text group-hover:text-beryl transition-colors truncate">{c.name}</span>
-            <span className="chip text-[10px] px-1.5 py-0 border-beryl/25 text-beryl/70 shrink-0">B20</span>
+            <ChainBadge venue={c.venue} />
           </div>
-          <div className="text-[12px] text-muted">{c.symbol}</div>
+          <div className="text-[12px] text-muted flex items-center gap-1.5 min-w-0">
+            <span className="shrink-0">{c.symbol}</span>
+            {(agent || c.creator) && (
+              <>
+                <span className="text-muted/50 shrink-0">·</span>
+                <span className="truncate">by {agent ?? shortAddr(c.creator)}</span>
+                {agent && (
+                  <span className="chip text-[9px] px-1 py-0 border-con-accent/40 text-con-accent shrink-0 uppercase tracking-wide">agent</span>
+                )}
+              </>
+            )}
+          </div>
         </div>
         {traded ? <Sparkline series={c.series} up={up} /> : <div className="h-7 flex items-center text-[10px] text-muted">no trades</div>}
       </Link>
@@ -348,7 +517,7 @@ function CardEl({ c, ethUsd }: { c: Card; ethUsd: number }) {
         <div className="grid grid-cols-3 gap-2 text-[11px]">
           <div>
             <div className="text-muted/80">Mcap</div>
-            <div className="text-text font-mono tabular">{traded ? usd(c.mcapEth, ethUsd) : "--"}</div>
+            <div className="text-text font-mono tabular">{c.mcapEth > 0 ? usd(c.mcapEth, ethUsd) : "--"}</div>
             {c.changePct !== null && <div className={`font-mono tabular ${up ? "text-beryl-glow" : "text-bad"}`}>{pct(c.changePct)}</div>}
           </div>
           <div>

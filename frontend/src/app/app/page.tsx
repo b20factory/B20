@@ -27,7 +27,7 @@ function AppInner() {
       <div className="flex flex-wrap items-end gap-3 mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-text">Launch a token</h1>
-          <p className="text-sm text-muted mt-1.5">Deploy a native B20 from the form or the command line. Same engine, your choice.</p>
+          <p className="text-sm text-muted mt-1.5">Deploy on Base or Robinhood Chain, from the form or the command line. Same engine, your choice.</p>
         </div>
         <div className="ml-auto inline-flex rounded-lg bg-panel2 p-1">
           {tab("app", "Form")}
@@ -38,7 +38,7 @@ function AppInner() {
       {mode === "app" ? <LaunchForm /> : <DeployTerminal />}
 
       <p className="mt-6 text-xs text-muted">
-        {IS_TESTNET ? "Base Sepolia · testnet" : "Base · mainnet"} · admin-less · 80% pool / 20% vested
+        Base {IS_TESTNET ? "testnet" : "mainnet"} · Robinhood Chain live · admin-less · 80% pool / 20% vested
       </p>
     </main>
   );

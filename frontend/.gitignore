@@ -1,0 +1,44 @@
+# deps / build
+node_modules/
+.next/
+dist/
+build/
+out/
+.turbo/
+coverage/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+.venv/
+venv/
+slither-venv/
+
+# secrets — NEVER commit
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.key
+*.pem
+*.keystore
+wallets.json
+test-wallets.json
+*-wallet.json
+*wallet*.json
+mnemonic*
+seed
+seed.js
+*.seed
+secrets.json
+airdrop-receivers.json
+
+# runtime data / uploads
+data/*.json
+uploads/
+*.log
+.DS_Store
+
+# backups
+*-backup*
+*.tgz
+*.tar.gz

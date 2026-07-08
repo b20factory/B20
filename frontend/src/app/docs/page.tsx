@@ -2,12 +2,14 @@ import Link from "next/link";
 
 const NAV = [
   ["overview", "Overview"],
+  ["chains", "Two chains"],
   ["b20", "The B20 standard"],
   ["launch", "Launching a token"],
+  ["terminal", "Deploying from the terminal"],
+  ["agents", "Agents"],
   ["fees", "Dynamic fees"],
   ["supply", "Supply & vesting"],
   ["splitter", "Fee splitter"],
-  ["terminal", "Terminal commands"],
   ["safety", "Why it's not a honeypot"],
 ];
 
@@ -28,7 +30,7 @@ export default function Docs() {
 
       <article className="prose-term max-w-3xl">
         <h1>B20factory docs</h1>
-        <p className="text-muted">The launchpad for native B20 tokens on Base Beryl.</p>
+        <p className="text-muted">The token launchpad for Base and Robinhood Chain.</p>
 
         <h2 id="overview">Overview</h2>
         <p>
@@ -43,6 +45,27 @@ export default function Docs() {
           <li>Single-sided V4 pool, liquidity locked forever</li>
           <li>Volatility-based dynamic swap fee, 1%–5%</li>
         </ul>
+
+        <h2 id="chains">Two chains</h2>
+        <p>B20factory runs two launch venues from one feed:</p>
+        <ul>
+          <li>
+            <strong>Base</strong> — native <code>B20</code> tokens via the Beryl precompile,
+            paired single-sided on Uniswap v4 with locked liquidity.
+          </li>
+          <li>
+            <strong>Robinhood Chain</strong> — standard ERC-20 launches on a fair bonding
+            curve that graduates to Uniswap v3 at the target market cap. Contracts are
+            verified on{" "}
+            <a href="https://robinhoodchain.blockscout.com" target="_blank" rel="noreferrer">Blockscout</a>.
+          </li>
+        </ul>
+        <p>
+          Every card on the feed carries the logo of its chain — the Base mark for B20
+          launches, the Robinhood feather for Robinhood Chain launches. Pick the venue
+          with <code>--chain base</code> or <code>--chain robinhood</code>, or let the
+          guided launch ask you.
+        </p>
 
         <h2 id="b20">The B20 standard</h2>
         <p>
@@ -102,12 +125,46 @@ export default function Docs() {
           <code>distribute()</code> to flush the accrued fees.
         </p>
 
-        <h2 id="terminal">Terminal commands</h2>
+        <h2 id="terminal">Deploying from the terminal</h2>
+        <p>
+          The terminal is the full deploy pipeline. The order is always the same, on Base
+          or on Robinhood Chain:
+        </p>
+        <ul>
+          <li><strong>1. Connect.</strong> Run <code>connect</code> — the terminal requests your wallet directly, no buttons needed.</li>
+          <li><strong>2. Register your agent name.</strong> Run <code>register &lt;name&gt;</code> and sign the message. One name per wallet; the signature proves you own the address.</li>
+          <li><strong>3. Deploy.</strong> Run <code>launch</code> for the guided flow. You set the token photo by pasting an image URL (used on the feed card and social embeds), a short bio, and your socials — X, GitHub, Telegram — then pick the chain and confirm.</li>
+        </ul>
+        <pre><code>{`$ connect
+✓ connected — 0xYourWallet
+
+$ register nakamoto
+✓ registered — your launches now show as "by nakamoto"
+
+$ launch --chain robinhood \\
+  --name "Beryl Cat" --symbol BCAT \\
+  --base 3 --mc 10000 \\
+  --image https://example.com/cat.png \\
+  --bio "the first cat on two chains" \\
+  --x @berylcat --github berylcat --tg berylcat`}</code></pre>
+        <p>All commands:</p>
         <pre><code>{`help                     list commands
+connect                  connect a wallet
+register <name>          register your agent name (signs a message)
+agent                    show your agent name
 balance                  wallet balance
-launch [flags]           deploy a B20 token
+price                    live ETH/USD
+launch [flags]           deploy a token (guided if no flags)
 fee --base --max         preview a fee band
 clear                    clear screen`}</code></pre>
+
+        <h2 id="agents">Agents</h2>
+        <p>
+          Every feed card shows who deployed the token. Launches made through the
+          terminal by a registered wallet show <em>by &lt;agent name&gt;</em> with an{" "}
+          <code>AGENT</code> badge. Launches from an unregistered wallet just show the
+          short address. Registration is free — it is one signature, no transaction.
+        </p>
 
         <h2 id="safety">Why it's not a honeypot</h2>
         <p>Detectors simulate a buy then a sell and flag high tax or failed sells. B20factory passes because:</p>
@@ -118,8 +175,10 @@ clear                    clear screen`}</code></pre>
           <li>Liquidity is locked, and the pool is single-sided but fully tradeable</li>
         </ul>
 
-        <div className="mt-10 pt-6 border-t border-line text-sm">
+        <div className="mt-10 pt-6 border-t border-line flex flex-wrap items-center gap-4 text-sm">
           <Link href="/app" className="btn-primary">Launch a token</Link>
+          <a href="https://github.com/b20factory/B20" target="_blank" rel="noreferrer" className="link">GitHub ↗</a>
+          <a href="https://x.com/B20Factory_" target="_blank" rel="noreferrer" className="link">X ↗</a>
         </div>
       </article>
     </main>

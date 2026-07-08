@@ -3,6 +3,7 @@ import HeroTerminal from "@/components/HeroTerminal";
 import Mascot from "@/components/Mascot";
 import Reveal from "@/components/Reveal";
 import { IS_TESTNET } from "@/lib/contracts";
+import { BaseLogo, RobinhoodLogo } from "@/components/ChainLogo";
 
 const STATS: [string, string][] = [
   ["1B", "Fixed supply"],
@@ -27,15 +28,19 @@ export default function Home() {
       {/* hero */}
       <section className="grid lg:grid-cols-2 gap-12 items-center pt-16 sm:pt-24">
         <div className="animate-fade-up">
-          <span className="chip-on mb-6">Launchpad for Base Beryl</span>
+          <span className="chip-on mb-6">Launchpad · Base + Robinhood Chain</span>
           <h1 className="text-4xl sm:text-[3.4rem] font-semibold leading-[1.06] tracking-tight text-text">
-            Launch native <span className="text-brand">B20</span> tokens on Base.
+            Launch <span className="text-brand">B20</span> tokens across two chains.
           </h1>
           <p className="mt-5 text-muted max-w-md text-lg leading-relaxed">
-            Deploy a clean, admin-less token with locked single-sided liquidity —
-            from a simple form, or straight from the command line.
+            Deploy a clean, admin-less token from a simple form or the command line —
+            native B20 on Base, or a fair bonding curve on Robinhood Chain.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-muted">
+            <span className="inline-flex items-center gap-1.5"><BaseLogo size={14} /> Native B20 · Base</span>
+            <span className="inline-flex items-center gap-1.5"><RobinhoodLogo size={14} /> Bonding curve · Robinhood Chain</span>
+          </div>
+          <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/app" className="btn-primary text-base px-6 py-3">Launch a token</Link>
             <Link href="/app?mode=terminal" className="btn text-base px-6 py-3">Open terminal</Link>
           </div>
@@ -74,6 +79,42 @@ export default function Home() {
               </div>
             </Reveal>
           ))}
+        </div>
+      </section>
+
+      {/* two chains */}
+      <section className="mt-24">
+        <Reveal>
+          <p className="h-sec mb-2">Two chains, one launchpad</p>
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-text mb-8">Pick where your token lives.</h2>
+        </Reveal>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Reveal>
+            <div className="card-hover h-full">
+              <div className="flex items-center gap-2 mb-2">
+                <BaseLogo size={18} />
+                <h3 className="font-semibold text-text">Base</h3>
+                <span className="chip text-[10px] px-1.5 py-0 border-beryl/25 text-beryl/80">Native B20</span>
+              </div>
+              <p className="text-sm text-muted leading-relaxed">
+                The 0xB20f… precompile mints a native B20 — admin-less, supply-capped, no transfer tax.
+                Seeded single-sided into a locked Uniswap v4 pool, tradeable the moment it deploys.
+              </p>
+            </div>
+          </Reveal>
+          <Reveal delay={80}>
+            <div className="card-hover h-full">
+              <div className="flex items-center gap-2 mb-2">
+                <RobinhoodLogo size={18} />
+                <h3 className="font-semibold text-text">Robinhood Chain</h3>
+                <span className="chip text-[10px] px-1.5 py-0 border-[#00C805]/30 text-[#00C805]">Bonding curve</span>
+              </div>
+              <p className="text-sm text-muted leading-relaxed">
+                A fair bonding curve where price rises with every buy. When it hits the graduation cap,
+                liquidity migrates to Uniswap v3. Contracts verified on Blockscout.
+              </p>
+            </div>
+          </Reveal>
         </div>
       </section>
 
@@ -137,8 +178,13 @@ launch \\
         <a className="hover:text-text transition-colors" href="https://x.com/B20Factory_" target="_blank" rel="noreferrer">X</a>
         <a className="hover:text-text transition-colors" href="https://github.com/b20factory/B20" target="_blank" rel="noreferrer">GitHub</a>
         <Link className="hover:text-text transition-colors" href="/feedback">Feedback</Link>
-        <span className={`ml-auto chip ${IS_TESTNET ? "border-warn/30 text-warn" : "border-beryl/25 text-beryl"}`}>
-          {IS_TESTNET ? "Base Sepolia · testnet" : "Base · mainnet"}
+        <span className="ml-auto flex items-center gap-2">
+          <span className={`chip inline-flex items-center gap-1 ${IS_TESTNET ? "border-warn/30 text-warn" : "border-beryl/25 text-beryl"}`}>
+            <BaseLogo size={11} />{IS_TESTNET ? "Base · testnet" : "Base · mainnet"}
+          </span>
+          <span className="chip inline-flex items-center gap-1 border-[#00C805]/30 text-[#00C805]">
+            <RobinhoodLogo size={11} />Robinhood · live
+          </span>
         </span>
       </footer>
     </main>

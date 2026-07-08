@@ -1,9 +1,12 @@
 // Client helpers for the off-chain token metadata store (/api/token-meta).
 export type TokenMeta = {
   token: string;
+  venue?: "base" | "robinhood";
   image?: string;
   website?: string;
   x?: string;
+  github?: string;
+  telegram?: string;
   description?: string;
   creator?: string;
   name?: string;

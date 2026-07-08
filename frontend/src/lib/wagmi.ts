@@ -2,11 +2,12 @@ import { http, createConfig } from "wagmi";
 import { base, baseSepolia } from "wagmi/chains";
 import { injected, coinbaseWallet } from "wagmi/connectors";
 import { CHAIN_ID } from "./contracts";
+import { robinhoodChain } from "./chains";
 
 export const ACTIVE_CHAIN = CHAIN_ID === 8453 ? base : baseSepolia;
 
 export const wagmiConfig = createConfig({
-  chains: [base, baseSepolia],
+  chains: [base, baseSepolia, robinhoodChain],
   connectors: [
     injected({ target: { id: "injected", name: "Browser Wallet", provider: () => (typeof window !== "undefined" ? (window as any).ethereum : undefined) } }),
     coinbaseWallet({ appName: "B20factory", preference: "all" }),
@@ -17,6 +18,13 @@ export const wagmiConfig = createConfig({
     // On the server (SSR) fall back to the default public RPC.
     [base.id]: http(typeof window !== "undefined" ? "/api/rpc" : undefined),
     [baseSepolia.id]: http(),
+    // Robinhood Chain always goes through the same-origin proxy: the public RPC
+    // is blocked on some ISPs (Internet Positif), the proxy is not.
+    [robinhoodChain.id]: http(
+      typeof window !== "undefined"
+        ? "/api/rpc-rh"
+        : "https://rpc.mainnet.chain.robinhood.com"
+    ),
   },
   ssr: true,
 });
