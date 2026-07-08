@@ -13,7 +13,8 @@ export default function LaunchForm() {
   const { isConnected } = useAccount();
   const { launch, steps, busy, token } = useLaunch();
   const router = useRouter();
-  const [venue, setVenue] = useState<VenueId>("base");
+  // Default to the live public venue (Robinhood) while B20 is still on testnet.
+  const [venue, setVenue] = useState<VenueId>(rhLive ? "robinhood" : "base");
   const [f, setF] = useState<LaunchInput>({ name: "", symbol: "", startMcUsd: 10000, ethUsd: ETH_USD_FALLBACK, baseFeePct: 3, maxFeePct: 5, feeReceiveType: 0, venue: "base", rhVenue: "curve", imageUrl: "", website: "", x: "", github: "", telegram: "", description: "" });
   const upd = (k: keyof LaunchInput, v: any) => setF((p) => ({ ...p, [k]: v }));
   const rh = venue === "robinhood";
@@ -210,12 +211,12 @@ export default function LaunchForm() {
                 </div>
               </div>
               <p className="text-[11px] text-muted mt-2">
-                {flat ? "flat fee — no dynamic ramp" : `dynamic — sits at ${f.baseFeePct}%, ramps to ${f.maxFeePct}% on volatility, then settles`}
+                {flat ? "flat fee, no dynamic ramp" : `dynamic, sits at ${f.baseFeePct}%, ramps to ${f.maxFeePct}% on volatility, then settles`}
               </p>
             </div>
           )}
 
-          {/* how the CREATOR receives their fee share — Base only (platform is always ETH) */}
+          {/* how the CREATOR receives their fee share, Base only (platform is always ETH) */}
           {!rh && (
             <div>
               <label className="label">receive your fees in</label>
@@ -256,7 +257,7 @@ export default function LaunchForm() {
             <div key={s.id} className={s.status === "ok" ? "text-con-ok" : s.status === "err" ? "text-con-err" : s.status === "run" ? "text-con-text" : "text-con-muted/70"}>
               <span className="inline-block w-4">{s.status === "ok" ? "✓" : s.status === "err" ? "✕" : s.status === "run" ? "›" : "·"}</span>
               {s.label}
-              {s.note && <span className="text-con-muted"> — {s.note}</span>}
+              {s.note && <span className="text-con-muted">, {s.note}</span>}
             </div>
           ))}
           {token && (

@@ -1,5 +1,5 @@
 // Chain badges for the token feed: every card carries the logo of the chain it
-// launched on — the Base/B20 mark for native B20 tokens, the Robinhood feather
+// launched on, the Base/B20 mark for native B20 tokens, the Robinhood feather
 // for Robinhood Chain launches. Pure inline SVG, crisp at any size.
 
 export function BaseLogo({ size = 14 }: { size?: number }) {

@@ -9,7 +9,7 @@ export const ADDR = {
   b20Precompile: (process.env.NEXT_PUBLIC_B20_PRECOMPILE || "") as `0x${string}`,
 };
 
-// RecomLaunchpad.launchCollection(LaunchParams) — the bonding launch entrypoint.
+// RecomLaunchpad.launchCollection(LaunchParams), the bonding launch entrypoint.
 // For B20factory: tokenFeeBps = BASE fee, decaySeconds = MAX fee (per-launch band).
 export const LAUNCHPAD_ABI = [
   {
@@ -106,7 +106,7 @@ export const FACTORY_ABI = [
   { type: "function", name: "tokenToCollection", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "address" }] },
 ] as const;
 
-// B20Vesting — one per token, holds the creator's vested slice (default 20%).
+// B20Vesting, one per token, holds the creator's vested slice (default 20%).
 // claim() is permissionless; tokens can only ever go to the immutable beneficiary.
 export const VESTING_ABI = [
   { type: "function", name: "claim", stateMutability: "nonpayable", inputs: [], outputs: [] },
@@ -120,7 +120,7 @@ export const VESTING_ABI = [
   { type: "function", name: "beneficiary", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
 ] as const;
 
-// B20FeeSplitter — accrues swap fees in ETH; distribute() splits to creator/platform.
+// B20FeeSplitter, accrues swap fees in ETH; distribute() splits to creator/platform.
 export const SPLITTER_ABI = [
   { type: "function", name: "distribute", stateMutability: "nonpayable", inputs: [], outputs: [] },
   { type: "function", name: "creator", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
@@ -142,7 +142,7 @@ export const ERC20_ABI = [
   { type: "function", name: "approve", stateMutability: "nonpayable", inputs: [{ name: "spender", type: "address" }, { name: "amount", type: "uint256" }], outputs: [{ type: "bool" }] },
 ] as const;
 
-// B20SwapRouter — exact-input buy/sell for the in-app swap box.
+// B20SwapRouter, exact-input buy/sell for the in-app swap box.
 // buy  = swapExactIn(key, true,  ethIn,   minOut, recipient) with msg.value = ethIn
 // sell = swapExactIn(key, false, tokenIn, minOut, recipient) after approve
 export const ROUTER_ABI = [

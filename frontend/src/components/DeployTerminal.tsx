@@ -43,10 +43,10 @@ const RECV = ["ETH", "token", "both"];
 function prompt(step: Step, d: Draft): string {
   const rh = d.venue === "robinhood";
   switch (step) {
-    case "chain": return `where do we launch? \`b20\` (native B20 on Base) or \`robinhood\` (Robinhood Chain)${rhLive ? "" : " — robinhood coming online soon"}. hit enter for b20.`;
+    case "chain": return `where do we launch? \`robinhood\` (live) or \`b20\` (native B20 on Base, testnet). hit enter for robinhood.`;
     case "rhtype": return "market type? `curve` (bonding curve, graduates to v3) or `v3` (Uniswap v3 pool now, buyable by bots). hit enter for curve.";
     case "name": return "what should the token be called?";
-    case "symbol": return `nice — "${d.name}". ticker/symbol? (e.g. CAT, max 11 chars)`;
+    case "symbol": return `nice, "${d.name}". ticker/symbol? (e.g. CAT, max 11 chars)`;
     case "fee": return rh
       ? "trading fee? type like `3` for 3%, or hit enter for the default [3]."
       : "fee band? type like `3 5` for base 3% / max 5%, or hit enter for the default [3-5].";
@@ -94,7 +94,7 @@ export default function DeployTerminal() {
   const { signMessageAsync } = useSignMessage();
   const { launch, busy } = useLaunch();
   const [lines, setLines] = useState<Line[]>([
-    { t: "bot", s: "gm. i'm beryl. type `launch` and i'll walk you through it — B20 or Robinhood chain. `help` for raw commands." },
+    { t: "bot", s: "gm. i'm beryl. type `launch` and i'll walk you through it, B20 or Robinhood chain. `help` for raw commands." },
   ]);
   const [val, setVal] = useState("");
   const [wiz, setWiz] = useState<{ step: Step; draft: Draft } | null>(null);
@@ -113,14 +113,14 @@ export default function DeployTerminal() {
   }, [address]);
 
   async function doConnect() {
-    if (isConnected) { push([{ t: "ok", s: `already connected — ${address}` }]); return; }
+    if (isConnected) { push([{ t: "ok", s: `already connected, ${address}` }]); return; }
     const injected = connectors.find((c) => c.id === "injected") ?? connectors[0];
     if (!injected) { push([{ t: "err", s: "no wallet connector available" }]); return; }
     push([{ t: "out", s: "› requesting wallet connection…" }]);
     try {
       const res = await connectAsync({ connector: injected });
       const a = res.accounts[0];
-      push([{ t: "ok", s: `✓ connected — ${a}` }]);
+      push([{ t: "ok", s: `✓ connected, ${a}` }]);
       const agents = await getAgents();
       const nm = agents[a.toLowerCase()];
       if (nm) { setAgentName(nm); say(`welcome back, agent ${nm}.`); }
@@ -131,22 +131,22 @@ export default function DeployTerminal() {
   }
 
   async function doRegister(name: string) {
-    if (!isConnected || !address) { push([{ t: "err", s: "connect first — run `connect`." }]); return; }
+    if (!isConnected || !address) { push([{ t: "err", s: "connect first, run `connect`." }]); return; }
     if (!name) { push([{ t: "err", s: "usage: register <name>   (3-24 chars)" }]); return; }
-    push([{ t: "out", s: `› registering agent "${name}" — sign the message in your wallet…` }]);
+    push([{ t: "out", s: `› registering agent "${name}", sign the message in your wallet…` }]);
     try {
       const sig = await signMessageAsync({ message: registerMessage(name, address) });
       const res = await registerAgent(address, name, sig);
       if (!res.ok) { push([{ t: "err", s: `✕ ${res.error || "registration failed"}` }]); return; }
       setAgentName(name);
-      push([{ t: "ok", s: `✓ registered — your launches now show as "by ${name}" with the agent badge.` }]);
+      push([{ t: "ok", s: `✓ registered, your launches now show as "by ${name}" with the agent badge.` }]);
     } catch (e: any) {
       push([{ t: "err", s: `✕ ${e?.shortMessage || e?.message || "signature rejected"}` }]);
     }
   }
 
   function startWizard() {
-    if (!isConnected) { push([{ t: "err", s: "connect a wallet first — run `connect`." }]); return; }
+    if (!isConnected) { push([{ t: "err", s: "connect a wallet first, run `connect`." }]); return; }
     const w = { step: "chain" as Step, draft: {} as Draft };
     setWiz(w);
     if (!agentName) say("tip: `cancel` then `register <name>` if you want this launch credited to an agent name.");
@@ -171,7 +171,7 @@ export default function DeployTerminal() {
     try {
       const tok = await launch(input);
       push([
-        { t: "ok", s: `✓ deployed — CA ${tok}` },
+        { t: "ok", s: `✓ deployed, CA ${tok}` },
         v3
           ? { t: "ok", s: "  live Uniswap v3 pool · LP locked · buyable by any wallet or bot" }
           : rh
@@ -212,8 +212,8 @@ export default function DeployTerminal() {
 
     switch (w.step) {
       case "chain": {
-        const v: VenueId = low.startsWith("rob") || low === "rh" ? "robinhood" : "base"; // b20/base/blank => base
-        if (v === "robinhood" && !rhLive) { say("robinhood chain isn't live on b20factory yet — launching on `base` for now, or `cancel`."); return; }
+        const v: VenueId = (low === "b20" || low === "base") ? "base" : "robinhood"; // blank/robinhood => robinhood (live)
+        if (v === "robinhood" && !rhLive) { say("robinhood chain isn't live on b20factory yet, launching on `base` for now, or `cancel`."); return; }
         d.venue = v; next = v === "robinhood" ? "rhtype" : "name"; break;
       }
       case "rhtype": {
@@ -221,12 +221,12 @@ export default function DeployTerminal() {
         next = "name"; break;
       }
       case "name":
-        if (!s) { say("give it a name first — anything works."); return; }
+        if (!s) { say("give it a name first, anything works."); return; }
         d.name = s.slice(0, 32); next = "symbol"; break;
       case "symbol": {
         const sym = s.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 11);
         if (!sym) { say("the ticker needs at least one letter or number. try again."); return; }
-        // v3 pools use the fixed 1% fee tier — skip the fee question entirely
+        // v3 pools use the fixed 1% fee tier, skip the fee question entirely
         d.symbol = sym; next = d.rhVenue === "v3" ? "mc" : "fee"; break;
       }
       case "fee": {
@@ -297,12 +297,12 @@ export default function DeployTerminal() {
     if (name === "clear") { setLines([]); return; }
     if (name === "help") { push(HELP.map((s) => ({ t: "out" as const, s }))); return; }
     if (name === "cancel") { say("nothing to cancel."); return; }
-    if (name === "gm" || name === "hi" || name === "hello") { say(agentName ? `gm, agent ${agentName}. type \`launch\` when ready.` : "gm. ready when you are — type `connect`, then `launch`."); return; }
+    if (name === "gm" || name === "hi" || name === "hello") { say(agentName ? `gm, agent ${agentName}. type \`launch\` when ready.` : "gm. ready when you are, type `connect`, then `launch`."); return; }
     if (name === "connect") { doConnect(); return; }
     if (name === "register") { doRegister(rest.join(" ").trim().slice(0, 24)); return; }
     if (name === "agent") {
-      if (!isConnected) { push([{ t: "err", s: "no wallet connected — run `connect`." }]); return; }
-      push([{ t: agentName ? "ok" : "out", s: agentName ? `agent ${agentName} (${address})` : "no agent name yet — run `register <name>`." }]);
+      if (!isConnected) { push([{ t: "err", s: "no wallet connected, run `connect`." }]); return; }
+      push([{ t: agentName ? "ok" : "out", s: agentName ? `agent ${agentName} (${address})` : "no agent name yet, run `register <name>`." }]);
       return;
     }
     if (name === "balance") {
@@ -315,14 +315,14 @@ export default function DeployTerminal() {
       return;
     }
     if (name === "price") {
-      push([{ t: "out", s: `ETH $${ethUsd.toLocaleString("en-US", { maximumFractionDigits: 2 })} (live) — used to size the starting market cap` }]);
+      push([{ t: "out", s: `ETH $${ethUsd.toLocaleString("en-US", { maximumFractionDigits: 2 })} (live), used to size the starting market cap` }]);
       return;
     }
     if (name === "launch") {
       // no flags → guided; flags → one-shot
       if (!args.name && !args.symbol) { startWizard(); return; }
-      if (!isConnected) { push([{ t: "err", s: "connect a wallet first — run `connect`" }]); return; }
-      if (!args.name || !args.symbol) { push([{ t: "err", s: 'usage: launch --name "My Token" --symbol MTK [--chain base|robinhood] [--base 3] [--max 5] [--mc 10000] [--image <url>]  — or just `launch` for guided mode' }]); return; }
+      if (!isConnected) { push([{ t: "err", s: "connect a wallet first, run `connect`" }]); return; }
+      if (!args.name || !args.symbol) { push([{ t: "err", s: 'usage: launch --name "My Token" --symbol MTK [--chain base|robinhood] [--base 3] [--max 5] [--mc 10000] [--image <url>] , or just `launch` for guided mode' }]); return; }
       const chainArg = (args.chain || "").toLowerCase();
       const venue: VenueId = chainArg.startsWith("rob") ? "robinhood" : "base";
       // --v3 flag, or --chain robinhood-v3 / robinhoodv3
@@ -347,7 +347,7 @@ export default function DeployTerminal() {
       try {
         const tok = await launch(input);
         push([
-          { t: "ok", s: `✓ deployed — CA ${tok}` },
+          { t: "ok", s: `✓ deployed, CA ${tok}` },
           isV3
             ? { t: "ok", s: "  live Uniswap v3 pool · LP locked · buyable by any wallet or bot" }
             : venue === "robinhood"
@@ -361,7 +361,7 @@ export default function DeployTerminal() {
       }
       return;
     }
-    push([{ t: "err", s: `unknown command: ${name} — try \`help\` or \`launch\`` }]);
+    push([{ t: "err", s: `unknown command: ${name}, try \`help\` or \`launch\`` }]);
   }
 
   function handleToolbar(item: typeof TOOLBAR[0]) {
@@ -375,7 +375,7 @@ export default function DeployTerminal() {
     <div className="console font-mono">
       <div className="console-bar">
         <span className="console-dot" /><span className="console-dot" /><span className="console-dot" />
-        <span className="ml-2 text-xs">beryl — interactive launch</span>
+        <span className="ml-2 text-xs">beryl, interactive launch</span>
         <span className="ml-auto text-[11px]">
           {wiz ? "guiding" : isConnected ? (agentName ? `agent ${agentName}` : "connected") : "offline"}
         </span>

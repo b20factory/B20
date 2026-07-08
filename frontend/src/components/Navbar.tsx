@@ -11,7 +11,6 @@ const LINKS: [string, string][] = [
   ["/explore", "Explore"],
   ["/swap", "Swap"],
   ["/docs", "Docs"],
-  ["/security", "Security"],
   ["/app", "Launch"],
   ["/app?mode=terminal", "Terminal"],
   ["/app/tokens", "Creator"],

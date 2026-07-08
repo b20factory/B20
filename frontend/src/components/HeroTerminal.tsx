@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 
 // A looping, self-typing terminal session that shows how a B20 launch "feels like
-// coding". Pure visual — no chain calls.
+// coding". Pure visual, no chain calls.
 const SCRIPT: { t: "in" | "out" | "ok" | "dim"; s: string }[] = [
   { t: "in", s: "launch --name \"Beryl Cat\" --symbol BCAT" },
   { t: "dim", s: "  base 3% / max 5% dynamic · 20% vested · pool single-sided" },
@@ -56,7 +56,7 @@ export default function HeroTerminal() {
     <div className="console font-mono">
       <div className="console-bar">
         <span className="console-dot" /><span className="console-dot" /><span className="console-dot" />
-        <span className="ml-2 text-xs">b20factory — ~/launch</span>
+        <span className="ml-2 text-xs">b20factory, ~/launch</span>
         <span className="ml-auto text-[11px]">base beryl</span>
       </div>
       <div className="p-4 text-[13px] leading-6 min-h-[230px]">

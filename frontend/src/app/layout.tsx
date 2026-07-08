@@ -9,9 +9,9 @@ const sans = Instrument_Sans({ subsets: ["latin"], variable: "--font-sans" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 const SITE = "https://b20factory.xyz";
-const TITLE = "B20factory — Launch native B20 tokens on Base";
+const TITLE = "B20factory, Launch native B20 tokens on Base";
 const DESC =
-  "The launchpad for Base Beryl. Deploy a clean, admin-less B20 token with locked single-sided liquidity — from a simple form or the command line.";
+  "The launchpad for Base Beryl. Deploy a clean, admin-less B20 token with locked single-sided liquidity, from a simple form or the command line.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),

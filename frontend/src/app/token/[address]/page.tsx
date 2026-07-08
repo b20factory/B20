@@ -95,7 +95,7 @@ export default function TokenPage() {
         } catch {}
       }
 
-      // off-chain metadata (image + socials) — overrides the empty on-chain image
+      // off-chain metadata (image + socials), overrides the empty on-chain image
       const meta = await getTokenMeta(tokenAddr);
       if (meta?.image) image = meta.image;
       if (meta?.creator && !creator) creator = meta.creator;
@@ -249,7 +249,7 @@ export default function TokenPage() {
       </div>
 
       <div className="grid md:grid-cols-[1fr_320px] gap-6">
-        {/* left — chart embed + tx feed placeholder */}
+        {/* left, chart embed + tx feed placeholder */}
         <div className="space-y-4">
           <div className="term overflow-hidden">
             <div className="term-bar">
@@ -266,7 +266,7 @@ export default function TokenPage() {
           </div>
         </div>
 
-        {/* right — buy/sell + info */}
+        {/* right, buy/sell + info */}
         <div className="space-y-4">
           {/* wallet balances */}
           {isConnected && (
@@ -277,7 +277,7 @@ export default function TokenPage() {
             </div>
           )}
 
-          {/* swap box — buy/sell via B20SwapRouter */}
+          {/* swap box, buy/sell via B20SwapRouter */}
           <div className="card space-y-3">
             <div className="flex gap-1 p-1 rounded-lg bg-panel2">
               <button className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${tab === "buy" ? "bg-panel text-beryl-glow shadow-card" : "text-muted hover:text-text"}`} onClick={() => { setTab("buy"); setSwapErr(""); setSwapMsg(""); }}>Buy</button>
@@ -321,7 +321,7 @@ export default function TokenPage() {
             <p className="text-[11px] text-muted">Dynamic fee {(feeBps / 100).toFixed(2)}% · via B20SwapRouter</p>
           </div>
 
-          {/* fee splitter — claim accrued swap fees */}
+          {/* fee splitter, claim accrued swap fees */}
           {splitterBal > 0n && (
             <div className="card space-y-2">
               <div className="h-sec">Creator fees</div>
@@ -336,7 +336,7 @@ export default function TokenPage() {
             </div>
           )}
 
-          {/* creator vesting — claim the unlocked slice of the 20% creator allocation */}
+          {/* creator vesting, claim the unlocked slice of the 20% creator allocation */}
           {vest && vest.total > 0n && (
             <div className="card space-y-2">
               <div className="h-sec">Creator vesting</div>

@@ -88,164 +88,22 @@ export default function Explore() {
   useEffect(() => { getAgents().then(setAgents); }, []);
 
   const load = useCallback(async () => {
-    if (!pub) return;
-    const meta = await getAllTokenMeta();
-
-    // base cards (name/symbol on-chain, image/socials off-chain). Read through an
-    // explicit client bound to the active Base chain so this never depends on the
-    // ambient wallet chain — and keep it in its own try so a base failure can't
-    // stop the Robinhood read below.
-    const base: Card[] = [];
-    const baseClient = createPublicClient({
-      chain: CHAIN_ID === 8453 ? baseChain : baseSepolia,
-      // Mainnet reads go through the keyed same-origin proxy; the testnet factory
-      // only exists on Sepolia, so read Sepolia directly (the proxy is mainnet).
-      transport: CHAIN_ID === 8453 && typeof window !== "undefined"
-        ? http("/api/rpc")
-        : http(),
-    });
+    // One same-origin fetch to the server-cached feed. All chain reads happen on
+    // the VPS and are cached, so the board loads effectively instantly.
     try {
-      const allAddrs = await baseClient.readContract({ address: ADDR.tokenFactory, abi: FACTORY_ABI, functionName: "getAllTokens" }) as `0x${string}`[];
-      // Drop delisted test/dummy tokens before doing any per-token work.
-      const addrs = allAddrs.filter((a) => !isHidden(a));
-      // Read every token's name/symbol in one parallel burst instead of a serial
-      // loop, so N tokens cost one round-trip's worth of wall-clock, not N.
-      const rows = await Promise.all(addrs.map(async (tok, i) => {
-        try {
-          const [nameRaw, symbolRaw] = await Promise.all([
-            baseClient.readContract({ address: tok, abi: ERC20_ABI, functionName: "name" }),
-            baseClient.readContract({ address: tok, abi: ERC20_ABI, functionName: "symbol" }),
-          ]);
-          const m: TokenMeta | undefined = meta[tok.toLowerCase()];
-          return {
-            token: tok, venue: "base" as const, creator: m?.creator || "",
-            name: String(nameRaw), symbol: String(symbolRaw),
-            image: m?.image || "", x: m?.x, idx: i,
-            priceEth: 0, mcapEth: 0, changePct: null, volEth: 0, trades: 0,
-            earnedEth: 0, series: [],
-          } as Card;
-        } catch { return null; }
+      const r = await fetch("/api/feed", { cache: "no-store" });
+      const d = await r.json();
+      const list: Card[] = (d.cards || []).map((c: any, i: number) => ({
+        token: c.token, venue: (c.venue === "robinhood" ? "robinhood" : "base") as VenueId,
+        creator: c.creator || "",
+        name: c.name, symbol: c.symbol, image: c.image || "", x: c.x, idx: i,
+        priceEth: c.priceEth || 0, mcapEth: c.mcapEth || 0,
+        changePct: null, volEth: 0, trades: 0, earnedEth: 0, series: [],
       }));
-      for (const r of rows) if (r) base.push(r);
-    } catch {}
-
-    try {
-      // robinhood chain cards — separate factory, read through the same-origin
-      // proxy. Price comes straight off the bonding curve.
-      const rhCards: Card[] = [];
-      if (rhLive) {
-        try {
-          const rhc = createPublicClient({ chain: robinhoodChain, transport: http(RH.rpcProxy) });
-          const n = Number(await rhc.readContract({ address: RH.factory, abi: RH_FACTORY_ABI, functionName: "tokensCount" }));
-          const idxs = Array.from({ length: n }, (_, i) => i);
-          const built = await Promise.all(idxs.map(async (i) => {
-            try {
-              const tok = await rhc.readContract({ address: RH.factory, abi: RH_FACTORY_ABI, functionName: "allTokens", args: [BigInt(i)] }) as `0x${string}`;
-              const [nameRaw, symbolRaw, launch] = await Promise.all([
-                rhc.readContract({ address: tok, abi: ERC20_ABI, functionName: "name" }),
-                rhc.readContract({ address: tok, abi: ERC20_ABI, functionName: "symbol" }),
-                rhc.readContract({ address: RH.factory, abi: RH_FACTORY_ABI, functionName: "launchOf", args: [tok] }) as Promise<readonly [string, string, string, string, string, number]>,
-              ]);
-              const market = launch[1] as `0x${string}`;
-              const creator = String(launch[3] || "");
-              const isV3 = Number(launch[5]) === VENUE_V3;
-              let priceEth = 0;
-              try {
-                if (isV3) {
-                  const tokenIs0 = tok.toLowerCase() < RH_V3.weth.toLowerCase();
-                  const slot0 = await rhc.readContract({ address: market, abi: RH_V3_POOL_ABI, functionName: "slot0" }) as readonly [bigint, number, number, number, number, number, boolean];
-                  priceEth = v3PriceEth(slot0[0], tokenIs0);
-                } else {
-                  const px = await rhc.readContract({ address: market, abi: RH_CURVE_ABI, functionName: "priceX18" }) as bigint;
-                  priceEth = Number(formatEther(px));
-                }
-              } catch {}
-              const m: TokenMeta | undefined = meta[tok.toLowerCase()];
-              return {
-                token: tok, venue: "robinhood" as const, creator: (m?.creator || creator).toLowerCase(),
-                name: String(nameRaw), symbol: String(symbolRaw),
-                image: m?.image || "", x: m?.x, idx: 100_000 + i,
-                priceEth, mcapEth: priceEth * 1_000_000_000, changePct: null,
-                volEth: 0, trades: 0, earnedEth: 0, series: [],
-              } as Card;
-            } catch { return null; }
-          }));
-          for (const r of built) if (r) rhCards.push(r);
-        } catch {}
-      }
-
-      setCards([...base, ...rhCards].slice().sort((a, b) => b.idx - a.idx));
-      // Cards are on screen now — drop the "Scanning…" spinner and let the
-      // heavier price/volume/fees enrichment below fill in behind them.
-      setLoading(false);
-
-      // Everything below is best-effort enrichment on the SAME explicit Base
-      // client the cards were read from — never the ambient wagmi client, which
-      // may point at the wrong chain and fire wasted, slow calls.
-      // earned fees per token — splitter ETH balance (best-effort, parallel)
-      const splitters = await Promise.all(base.map((c) =>
-        baseClient.readContract({ address: ADDR.tokenFactory, abi: FACTORY_ABI, functionName: "tokenToSplitter", args: [c.token] }).catch(() => ZERO as `0x${string}`)
-      ));
-      const earnedWei = await Promise.all(splitters.map((s) =>
-        s && s !== ZERO ? baseClient.getBalance({ address: s as `0x${string}` }).catch(() => 0n) : Promise.resolve(0n)
-      ));
-      const earnedByTok: Record<string, number> = {};
-      base.forEach((c, i) => { earnedByTok[c.token.toLowerCase()] = Number(formatEther(earnedWei[i])); });
-
-      // enrich with on-chain pool activity — one chunked getLogs over all b20 pools,
-      // then bucket by poolId. No DexScreener, works on testnet.
-      if (base.length && POOL_MANAGER) {
-        const byPool: Record<string, { series: number[]; vol: number; n: number }> = {};
-        const idToTok: Record<string, `0x${string}`> = {};
-        for (const c of base) idToTok[poolIdFor(c.token).toLowerCase()] = c.token;
-
-        const latest = await baseClient.getBlockNumber();
-        const step = 4500n;
-        let end = latest;
-        // 4 chunks is enough for a recent sparkline; the old 8-chunk scan just
-        // hammered the RPC and made the tab feel slow with nothing to show.
-        for (let i = 0; i < 4; i++) {
-          const start = end > step ? end - step : 0n;
-          const logs = await baseClient.getLogs({ address: POOL_MANAGER, event: SWAP_EVENT, fromBlock: start, toBlock: end }).catch(() => [] as any[]);
-          // logs come oldest->newest within the chunk; we walk chunks newest->oldest,
-          // so prepend each chunk to keep the series chronological
-          const perPool: Record<string, { prices: number[]; vol: number; n: number }> = {};
-          for (const l of logs) {
-            const a: any = (l as any).args;
-            const id = String(a.id).toLowerCase();
-            if (!idToTok[id]) continue;
-            const p = ethPerToken(a.sqrtPriceX96 as bigint);
-            const vol = Number(formatEther(absI128(a.amount0 as bigint)));
-            const pp = perPool[id] || (perPool[id] = { prices: [], vol: 0, n: 0 });
-            pp.prices.push(p); pp.vol += vol; pp.n += 1;
-          }
-          for (const id in perPool) {
-            const b = byPool[id] || (byPool[id] = { series: [], vol: 0, n: 0 });
-            b.series = [...perPool[id].prices, ...b.series];
-            b.vol += perPool[id].vol; b.n += perPool[id].n;
-          }
-          if (start === 0n) break;
-          if (Object.values(byPool).reduce((s, b) => s + b.series.length, 0) >= 400) break;
-          end = start - 1n;
-        }
-
-        const supply = 1_000_000_000; // B20 fixed supply
-        setCards((prev) => prev.map((c) => {
-          const earnedEth = earnedByTok[c.token.toLowerCase()] ?? 0;
-          const b = byPool[poolIdFor(c.token).toLowerCase()];
-          if (!b || b.series.length === 0) return { ...c, earnedEth };
-          const series = b.series.slice(-40);
-          const price = series[series.length - 1];
-          const first = series[0];
-          const change = first > 0 ? ((price - first) / first) * 100 : null;
-          return { ...c, priceEth: price, mcapEth: price * supply, changePct: change, volEth: b.vol, trades: b.n, earnedEth, series };
-        }));
-      } else {
-        setCards((prev) => prev.map((c) => ({ ...c, earnedEth: earnedByTok[c.token.toLowerCase()] ?? 0 })));
-      }
+      setCards(list);
     } catch {}
     setLoading(false);
-  }, [pub]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -329,7 +187,7 @@ export default function Explore() {
             </div>
           </div>
 
-          {/* live stats — per-chain status shown on the Base / Robinhood tiles */}
+          {/* live stats, per-chain status shown on the Base / Robinhood tiles */}
           <div className="mt-7 grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: "Launches", value: loading ? "…" : stats.total.toLocaleString() },
@@ -405,8 +263,8 @@ function Ticker({ cards }: { cards: Card[] }) {
         if (c.trades > 0) return `$${c.symbol} ${pct(c.changePct ?? 0)} · ${fmtEth(c.volEth)} ETH vol`;
         return `$${c.symbol} · listed on ${chain}`;
       })
-    : ["B20factory — native token launchpad on Base + Robinhood Chain"];
-  // Duplicate only to fill the marquee width for a seamless scroll — the data
+    : ["B20factory, native token launchpad on B20 + Robinhood Chain"];
+  // Duplicate only to fill the marquee width for a seamless scroll, the data
   // itself is not repeated as separate events.
   const items = [...events, ...events, ...events];
   return (
@@ -504,38 +362,32 @@ function CardEl({ c, ethUsd, agents }: { c: Card; ethUsd: number; agents: Record
             <span className="font-medium text-text group-hover:text-beryl transition-colors truncate">{c.name}</span>
             <ChainBadge venue={c.venue} />
           </div>
-          <div className="text-[12px] text-muted flex items-center gap-1.5 min-w-0">
-            <span className="shrink-0">{c.symbol}</span>
-            {(agent || c.creator) && (
-              <>
-                <span className="text-muted/50 shrink-0">·</span>
-                <span className="truncate">by {agent ?? shortAddr(c.creator)}</span>
-                {agent && (
-                  <span className="chip text-[9px] px-1 py-0 border-con-accent/40 text-con-accent shrink-0 uppercase tracking-wide">agent</span>
-                )}
-              </>
-            )}
+          <div className="text-[12px] text-muted">{c.symbol}</div>
+          <div className="text-[11px] mt-0.5 truncate">
+            <span className="text-muted/70">deployed by </span>
+            {agent
+              ? <span className="text-con-accent font-medium">agent {agent}</span>
+              : c.creator
+                ? <span className="font-mono text-muted">{shortAddr(c.creator)}</span>
+                : <span className="text-muted">the team</span>}
           </div>
         </div>
-        {traded ? <Sparkline series={c.series} up={up} /> : <div className="h-7 flex items-center text-[10px] text-muted">no trades</div>}
+        {traded ? <Sparkline series={c.series} up={up} /> : <div className="h-7 flex items-center text-[10px] text-muted">new</div>}
       </Link>
 
       <Link href={`/token/${c.token}`} className="block mt-3 pt-3 hairline">
         <div className="grid grid-cols-3 gap-2 text-[11px]">
           <div>
-            <div className="text-muted/80">Mcap</div>
+            <div className="text-muted/80">Price</div>
+            <div className="text-text font-mono tabular">{c.priceEth > 0 ? usd(c.priceEth, ethUsd) : "--"}</div>
+          </div>
+          <div>
+            <div className="text-muted/80">Market cap</div>
             <div className="text-text font-mono tabular">{c.mcapEth > 0 ? usd(c.mcapEth, ethUsd) : "--"}</div>
-            {c.changePct !== null && <div className={`font-mono tabular ${up ? "text-beryl-glow" : "text-bad"}`}>{pct(c.changePct)}</div>}
           </div>
           <div>
-            <div className="text-muted/80">Volume</div>
-            <div className="text-text font-mono tabular">{c.volEth > 0 ? `${fmtEth(c.volEth)} ETH` : "--"}</div>
-            <div className="text-muted/60 font-mono tabular">{c.volEth > 0 ? usd(c.volEth, ethUsd) : ""}</div>
-          </div>
-          <div>
-            <div className="text-muted/80">Fees</div>
-            <div className="text-beryl-glow font-mono tabular">{c.earnedEth > 0 ? `${fmtEth(c.earnedEth)} ETH` : "--"}</div>
-            <div className="text-muted/60 font-mono tabular">{c.earnedEth > 0 ? usd(c.earnedEth, ethUsd) : ""}</div>
+            <div className="text-muted/80">Fee</div>
+            <div className="text-beryl-glow font-mono tabular">{c.venue === "robinhood" ? "1%" : "1–5%"}</div>
           </div>
         </div>
       </Link>

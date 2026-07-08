@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 
-// Beryl — the B20factory terminal agent. Brand illustration kept alive with a
+// Beryl, the B20factory terminal agent. Brand illustration kept alive with a
 // gentle float + an "explaining" gesture sway, a speech bubble, and a live
 // terminal typing on its CRT face so it reads as if it's always coding.
 const LINES = [

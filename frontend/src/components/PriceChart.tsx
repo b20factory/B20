@@ -3,7 +3,7 @@
 // Native price chart built from on-chain Uniswap V4 swaps for this token's pool.
 // DexScreener doesn't index a freshly launched V4 pool for a while, so a new B20
 // token showed an empty chart. This reads PoolManager Swap events for the pool
-// directly and plots market cap per trade — it works the moment the first swap
+// directly and plots market cap per trade, it works the moment the first swap
 // lands, no third-party indexer.
 import { useEffect, useState } from "react";
 import { formatEther, keccak256, encodeAbiParameters } from "viem";

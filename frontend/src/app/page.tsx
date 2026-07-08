@@ -16,7 +16,7 @@ const FEATURES = [
   { h: "Native B20", p: "Minted by the Base Beryl 0xB20f… precompile. Fully ERC-20 compatible, with roughly 50% cheaper transfers." },
   { h: "Admin-less and capped", p: "Every launch ships with no admin: not mintable, not pausable, not freezable. Supply is capped and fully minted at birth." },
   { h: "Single-sided pool", p: "The trading slice is seeded single-sided into a locked V4 pool. Instantly tradeable, liquidity locked forever." },
-  { h: "Dynamic fee, 1–5%", p: "The fee sits at your base rate and ramps toward your max only under volatility. Hard-capped at 5%, auditor-clean." },
+  { h: "Dynamic fee, 1 to 5%", p: "The fee sits at your base rate and ramps toward your max only under volatility. Hard-capped at 5%, auditor-clean." },
   { h: "Fair vesting", p: "Public launches vest 20% to the creator at 1% of supply per month over 20 months. No team bag dumped on day one." },
   { h: "No transfer tax", p: "B20 is a clean ERC-20. The only fee is the swap fee, so buy/sell simulators pass and your token can be promoted." },
 ];
@@ -33,7 +33,7 @@ export default function Home() {
             Launch <span className="text-brand">B20</span> tokens across two chains.
           </h1>
           <p className="mt-5 text-muted max-w-md text-lg leading-relaxed">
-            Deploy a clean, admin-less token from a simple form or the command line —
+            Deploy a clean, admin-less token from a simple form or the command line , 
             native B20, or a fair bonding curve on Robinhood Chain.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-muted">
@@ -52,7 +52,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* guarantees strip — the term sheet */}
+      {/* guarantees strip, the term sheet */}
       <Reveal className="mt-16">
         <div className="term grid grid-cols-2 sm:grid-cols-4 sm:divide-x sm:divide-line overflow-hidden">
           {STATS.map(([n, l], i) => (
@@ -97,7 +97,7 @@ export default function Home() {
                 <span className="chip text-[10px] px-1.5 py-0 border-beryl/25 text-beryl/80">Native B20</span>
               </div>
               <p className="text-sm text-muted leading-relaxed">
-                The 0xB20f… precompile mints a native B20 — admin-less, supply-capped, no transfer tax.
+                The 0xB20f… precompile mints a native B20, admin-less, supply-capped, no transfer tax.
                 Seeded single-sided into a locked Uniswap v4 pool, tradeable the moment it deploys.
               </p>
             </div>
@@ -148,7 +148,7 @@ export default function Home() {
             <h2 className="text-2xl font-semibold tracking-tight text-text mb-3">What is B20?</h2>
             <p className="text-muted leading-relaxed mb-3">
               B20 is Base&apos;s native token standard, shipped in the Beryl upgrade. Token
-              logic runs in the node as a Rust precompile — full ERC-20 compatibility at a
+              logic runs in the node as a Rust precompile, full ERC-20 compatibility at a
               lower cost and higher throughput.
             </p>
             <p className="text-muted leading-relaxed mb-5">B20factory turns launching one into a single transaction.</p>

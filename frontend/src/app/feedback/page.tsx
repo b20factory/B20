@@ -21,7 +21,7 @@ export default function Feedback() {
       if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error || "failed");
       setSent(true);
     } catch (e: any) {
-      setErr(e?.message === "slow down" ? "Too many messages — give it a minute." : "Could not send. Try again, or reach us on X.");
+      setErr(e?.message === "slow down" ? "Too many messages, give it a minute." : "Could not send. Try again, or reach us on X.");
     } finally {
       setBusy(false);
     }
@@ -33,7 +33,7 @@ export default function Feedback() {
       <p className="text-sm text-muted mb-6">Found a bug, want a feature, or just have thoughts? Drop it here.</p>
       <div className="card">
         {sent ? (
-          <div className="text-beryl-glow font-medium">Thanks — feedback received.</div>
+          <div className="text-beryl-glow font-medium">Thanks, feedback received.</div>
         ) : (
           <form onSubmit={submit} className="space-y-3">
             <textarea className="input min-h-[140px] resize-y" placeholder="Type your feedback…" value={msg} onChange={(e) => setMsg(e.target.value)} />

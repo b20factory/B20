@@ -55,7 +55,7 @@ export default function RobinhoodToken({ token }: { token: `0x${string}` }) {
       let tokenIs0 = false;
       if (venue === "v3" && market && market !== ZERO) {
         // v3: price straight off the pool's spot price; it's a real pool, no
-        // curve — any bot can trade it. Fee is the fixed 1% tier (100 bps for
+        // curve, any bot can trade it. Fee is the fixed 1% tier (100 bps for
         // the shared /100 display; RH_V3.fee is in Uniswap's 1e-6 units).
         feeBps = 100;
         tokenIs0 = token.toLowerCase() < RH_V3.weth.toLowerCase();
@@ -275,7 +275,7 @@ export default function RobinhoodToken({ token }: { token: `0x${string}` }) {
           {!isConnected ? (
             <p className="text-sm text-muted text-center py-4">Connect a wallet to trade. Your wallet will switch to Robinhood Chain.</p>
           ) : info.venue === "curve" && info.graduated ? (
-            <p className="text-sm text-muted text-center py-4">Graduated — trade on Uniswap v3.</p>
+            <p className="text-sm text-muted text-center py-4">Graduated, trade on Uniswap v3.</p>
           ) : tab === "buy" ? (
             <div className="space-y-2">
               <label className="text-xs text-muted">Pay (ETH)</label>

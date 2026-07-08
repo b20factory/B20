@@ -1,5 +1,5 @@
 "use client";
-// Swap any Base token — Origin-style token view: price chart + live trades on
+// Swap any Base token, Origin-style token view: price chart + live trades on
 // the left, a buy/sell box on the right. Market data comes from GeckoTerminal
 // (chart + trades); execution goes through the 0x Swap API v2 (permit2) via the
 // server-side /api/swap proxy so the key stays private. Base MAINNET (8453).
@@ -117,7 +117,7 @@ export default function SwapPage() {
     return () => { on = false; };
   }, [market, tf]);
 
-  // live trades — refresh every 12s
+  // live trades, refresh every 12s
   useEffect(() => {
     if (!market) return;
     let on = true;
@@ -171,7 +171,7 @@ export default function SwapPage() {
         </div>
       ) : (
         <div className="grid lg:grid-cols-[1fr_340px] gap-6 items-start">
-          {/* left — market header + chart + live trades */}
+          {/* left, market header + chart + live trades */}
           <div className="space-y-4 min-w-0">
             <div className="term p-5">
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
@@ -195,7 +195,7 @@ export default function SwapPage() {
             <LiveTrades trades={trades} />
           </div>
 
-          {/* right — swap box */}
+          {/* right, swap box */}
           <SwapBox token={token} symbol={market.symbol} priceUsd={market.priceUsd} />
         </div>
       )}
@@ -324,7 +324,7 @@ function SwapBox({ token, symbol, priceUsd }: { token: `0x${string}`; symbol: st
     try { return tab === "buy" ? parseEther(amt) : parseUnits(amt, decimals); } catch { return null; }
   }, [amt, tab, decimals]);
 
-  // indicative quote (debounced) — the live number under the input
+  // indicative quote (debounced), the live number under the input
   useEffect(() => {
     setQuoteOut(null); setErr("");
     if (!sellAmountWei) return;

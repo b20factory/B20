@@ -10,7 +10,7 @@ function AppInner() {
   const router = useRouter();
   const [mode, setMode] = useState<"app" | "terminal">(sp.get("mode") === "terminal" ? "terminal" : "app");
   // keep the mode in sync when navigating between the Launch / Terminal menus
-  // (same route, only the query changes — the component does not remount)
+  // (same route, only the query changes, the component does not remount)
   useEffect(() => { setMode(sp.get("mode") === "terminal" ? "terminal" : "app"); }, [sp]);
 
   const tab = (id: "app" | "terminal", label: string) => (

@@ -34,7 +34,7 @@ input[type="range"] { accent-color: #0D9488; }
   .term-bar { @apply flex items-center gap-2 px-4 py-2.5 border-b border-line bg-panel2/60 rounded-t-2xl; }
   .dot { @apply w-2 h-2 rounded-full; }
 
-  /* dark console — the one dark surface, used for terminal/code panels */
+  /* dark console, the one dark surface, used for terminal/code panels */
   .console { @apply rounded-2xl bg-con-bg shadow-console overflow-hidden border border-black/10; }
   .console-bar { @apply flex items-center gap-2 px-4 py-2.5 border-b border-con-line bg-con-bar text-con-muted; }
   .console-dot { @apply w-2.5 h-2.5 rounded-full bg-white/10; }
@@ -91,7 +91,7 @@ input[type="range"] { accent-color: #0D9488; }
   .tabular { font-variant-numeric: tabular-nums; }
 }
 
-/* ── ambient background — Webora-style soft blobs in the B20 palette ─────── */
+/* ── ambient background, Webora-style soft blobs in the B20 palette ─────── */
 .ambient-blob {
   position: absolute;
   width: 44vw;
@@ -131,7 +131,7 @@ input[type="range"] { accent-color: #0D9488; }
   .ambient-blob { animation: none !important; }
 }
 
-/* docs prose — clean editorial */
+/* docs prose, clean editorial */
 .prose-term h1 { @apply text-3xl font-semibold tracking-tight text-text mb-2; }
 .prose-term h2 { @apply text-xl font-semibold tracking-tight text-text mt-12 mb-3 scroll-mt-24; }
 .prose-term p { @apply text-muted leading-relaxed mb-3; }
@@ -139,6 +139,6 @@ input[type="range"] { accent-color: #0D9488; }
 .prose-term code { @apply rounded bg-panel2 px-1.5 py-0.5 text-[13px] text-beryl-glow font-mono border border-line; }
 .prose-term ul { @apply list-none space-y-2 mb-4; }
 .prose-term li { @apply text-muted pl-5 relative leading-relaxed; }
-.prose-term li::before { content: ""; @apply absolute left-0 top-[0.6em] w-2 h-px bg-beryl; }
+.prose-term li::before { content: ""; @apply absolute left-0 top-[0.55em] w-1.5 h-1.5 rounded-full bg-beryl; }
 .prose-term pre { @apply rounded-xl bg-con-bg text-con-text p-4 overflow-x-auto text-[13px] leading-6 my-4 font-mono shadow-card; }
 .prose-term pre code { @apply bg-transparent border-0 p-0 text-con-text; }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import CopyAddress from "@/components/CopyAddress";
 
 export const metadata: Metadata = {
   title: { absolute: "Security | B20factory" },
@@ -19,7 +20,7 @@ const robinhood: Row[] = [
 // A concrete, fully-verified launch of each Robinhood market type.
 const rhExamples: { title: string; rows: Row[] }[] = [
   {
-    title: "Example — Bot Cat (BOTC), Uniswap v3 pool",
+    title: "Example, Bot Cat (BOTC), Uniswap v3 pool",
     rows: [
       { name: "Token (ERC-20)", note: "fully minted, no admin", addr: "0x697220D7ef4B35e30B8378B0C3D825E96287C08E", base: RH },
       { name: "V3 LP Locker", note: "holds the pool LP, no withdraw path", addr: "0xe685deaFE6770c6058e3Bb3a8769616E07a8f709", base: RH },
@@ -27,7 +28,7 @@ const rhExamples: { title: string; rows: Row[] }[] = [
     ],
   },
   {
-    title: "Example — Beryl Hood (BHOOD), bonding curve",
+    title: "Example, Beryl Hood (BHOOD), bonding curve",
     rows: [
       { name: "Token (ERC-20)", note: "fully minted, no admin", addr: "0x43608F3288b6B9F5B090B1A5bA07d35536b94667", base: RH },
       { name: "Bonding Curve", note: "holds ETH liquidity, no admin path", addr: "0x29498D80a265E6d037Dd74f4150C254004bbe74c", base: RH },
@@ -39,7 +40,7 @@ const rhExamples: { title: string; rows: Row[] }[] = [
 const b20: Row[] = [
   { name: "Launchpad", note: "collection + bonding entrypoint", addr: "0x0e56e3e9C0C6209F10AdE0A3DED1daf252B7b309", base: BASE },
   { name: "Token Factory", note: "mints the native B20 + seeds the pool", addr: "0x35deBD09cA16f264DC37506C4A58a5b85AD9fD16", base: BASE },
-  { name: "Fee Hook", note: "dynamic 1–5% swap fee, capped", addr: "0x0783bB68D3a3e4C2f061Da49669EC01f28cEE0CC", base: BASE },
+  { name: "Fee Hook", note: "dynamic 1 to 5% swap fee, capped", addr: "0x0783bB68D3a3e4C2f061Da49669EC01f28cEE0CC", base: BASE },
   { name: "Swap Router", note: "buy / sell routing", addr: "0x7960d31705394094a4667ee3dB203455Ce7a1e7E", base: BASE },
 ];
 
@@ -62,11 +63,8 @@ function Table({ rows }: { rows: Row[] }) {
                 <div className="font-medium text-text">{r.name}</div>
                 <div className="text-[12px] text-muted">{r.note}</div>
               </td>
-              <td className="px-4 py-3 font-mono text-[12px] text-muted">{r.addr.slice(0, 10)}…{r.addr.slice(-6)}</td>
               <td className="px-4 py-3 text-right">
-                <a href={`${r.base}${r.addr}`} target="_blank" rel="noreferrer" className="chip text-[11px] py-1 px-2.5 border-beryl/30 text-beryl inline-flex items-center gap-1">
-                  Verified ↗
-                </a>
+                <CopyAddress addr={r.addr} explorer={r.base} />
               </td>
             </tr>
           ))}
@@ -101,8 +99,8 @@ export default function Security() {
       <div className="mt-8 term p-6">
         <h2 className="text-lg font-semibold text-text mb-2">Audit summary</h2>
         <p className="text-sm text-muted leading-relaxed">
-          Both contract sets — the native B20 stack on Base and the Primehod-style stack on Robinhood
-          Chain (factory, tokens, bonding curve, v3 pool locker, vesting) — were run through Slither and
+          Both contract sets, the native B20 stack on Base and the Primehod-style stack on Robinhood
+          Chain (factory, tokens, bonding curve, v3 pool locker, vesting), were run through Slither and
           reviewed by hand. No critical or high-severity issue exists in the project’s own code. The only
           high-severity static hits are in the vendored, independently-audited Uniswap libraries, or are
           by-design ETH transfers to immutable recipients; all are triaged benign and documented.
@@ -123,7 +121,7 @@ export default function Security() {
         </div>
       ))}
       <p className="text-[12px] text-muted mt-3">
-        Every token launched on Robinhood — with its curve or v3 locker and its vesting — is verified the
+        Every token launched on Robinhood, with its curve or v3 locker and its vesting, is verified the
         same way automatically. The two above are live examples.
       </p>
 
