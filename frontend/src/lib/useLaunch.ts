@@ -4,7 +4,7 @@ import { useAccount, usePublicClient, useWalletClient } from "wagmi";
 import { decodeEventLog, parseEther } from "viem";
 import { ADDR, FACTORY_ABI } from "./contracts";
 import { ACTIVE_CHAIN } from "./wagmi";
-import { RH, RH_FACTORY_ABI, rhLive, robinhoodChain, type VenueId } from "./chains";
+import { RH, RH_FACTORY_ABI, rhLive, robinhoodChain, mcToPriceTick, type VenueId } from "./chains";
 import { saveTokenMeta } from "./tokenMeta";
 
 export type LaunchInput = {
@@ -16,6 +16,7 @@ export type LaunchInput = {
   maxFeePct: number;    // base..5
   feeReceiveType?: number; // 0=ETH, 1=TOKEN, 2=BOTH (creator's share delivery)
   venue?: VenueId;      // "base" (default) or "robinhood"
+  rhVenue?: "curve" | "v3"; // Robinhood only: bonding curve (default) or direct Uniswap v3 pool
   imageUrl?: string;
   website?: string;     // off-chain socials (token-meta store)
   x?: string;           // @handle or url
@@ -52,22 +53,32 @@ export function useLaunch() {
       let tok: `0x${string}` | null = null;
 
       if (venue === "robinhood") {
-        set("launch", { status: "run", note: "confirm in wallet (Robinhood Chain)" });
+        const v3 = input.rhVenue === "v3";
+        set("launch", { status: "run", note: `confirm in wallet (Robinhood Chain, ${v3 ? "v3 pool" : "curve"})` });
         // wagmi switches/adds the chain automatically because it is registered
         // in the config; the wallet prompts once to add Robinhood Chain.
-        const hash = await wallet.writeContract({
-          address: RH.factory,
-          abi: RH_FACTORY_ABI,
-          functionName: "createToken",
-          args: [
-            input.name,
-            input.symbol,
-            BigInt(Math.round(input.baseFeePct * 100)),
-            BigInt(Math.round(input.startMcUsd)),
-            "",
-          ],
-          chain: robinhoodChain,
-        });
+        const hash = v3
+          ? await wallet.writeContract({
+              address: RH.factory,
+              abi: RH_FACTORY_ABI,
+              functionName: "createTokenV3",
+              // priceTick = starting price (WETH per token) from the market cap
+              args: [input.name, input.symbol, mcToPriceTick(input.startMcUsd, input.ethUsd), ""],
+              chain: robinhoodChain,
+            })
+          : await wallet.writeContract({
+              address: RH.factory,
+              abi: RH_FACTORY_ABI,
+              functionName: "createToken",
+              args: [
+                input.name,
+                input.symbol,
+                BigInt(Math.round(input.baseFeePct * 100)),
+                BigInt(Math.round(input.startMcUsd)),
+                "",
+              ],
+              chain: robinhoodChain,
+            });
         set("launch", { status: "run", note: "waiting for confirmation…" });
         const rc = await pub.waitForTransactionReceipt({ hash });
         for (const log of rc.logs) {

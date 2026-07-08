@@ -14,9 +14,10 @@ export default function LaunchForm() {
   const { launch, steps, busy, token } = useLaunch();
   const router = useRouter();
   const [venue, setVenue] = useState<VenueId>("base");
-  const [f, setF] = useState<LaunchInput>({ name: "", symbol: "", startMcUsd: 10000, ethUsd: ETH_USD_FALLBACK, baseFeePct: 3, maxFeePct: 5, feeReceiveType: 0, imageUrl: "", website: "", x: "", github: "", telegram: "", description: "" });
+  const [f, setF] = useState<LaunchInput>({ name: "", symbol: "", startMcUsd: 10000, ethUsd: ETH_USD_FALLBACK, baseFeePct: 3, maxFeePct: 5, feeReceiveType: 0, venue: "base", rhVenue: "curve", imageUrl: "", website: "", x: "", github: "", telegram: "", description: "" });
   const upd = (k: keyof LaunchInput, v: any) => setF((p) => ({ ...p, [k]: v }));
   const rh = venue === "robinhood";
+  const v3 = rh && f.rhVenue === "v3";
 
   // live ETH/USD so the starting-MC -> pool ETH conversion is accurate
   const [ethUsd, setEthUsd] = useState(ETH_USD_FALLBACK);
@@ -67,10 +68,28 @@ export default function LaunchForm() {
     <div className="grid lg:grid-cols-2 gap-6">
       <div className="card">
         <div className="h-sec mb-4">Choose a chain</div>
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-4">
           {chainBtn("base", "Base", <BaseLogo size={15} />)}
           {chainBtn("robinhood", "Robinhood Chain", <RobinhoodLogo size={15} />, !rhLive)}
         </div>
+
+        {rh && (
+          <div className="mb-6">
+            <label className="label">market type</label>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => upd("rhVenue", "curve")}
+                className={`flex-1 rounded-lg border px-3 py-2 text-left transition-all ${f.rhVenue !== "v3" ? "border-beryl/50 bg-beryl/10" : "border-line hover:border-beryl-dim/50"}`}>
+                <div className="text-sm font-medium text-text">Bonding curve</div>
+                <div className="text-[11px] text-muted">fair curve, graduates to Uniswap v3</div>
+              </button>
+              <button type="button" onClick={() => upd("rhVenue", "v3")}
+                className={`flex-1 rounded-lg border px-3 py-2 text-left transition-all ${f.rhVenue === "v3" ? "border-beryl/50 bg-beryl/10" : "border-line hover:border-beryl-dim/50"}`}>
+                <div className="text-sm font-medium text-text">Uniswap v3 pool</div>
+                <div className="text-[11px] text-muted">real pool, buyable by bots instantly</div>
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="h-sec mb-5">Configure token</div>
         <div className="space-y-5">
@@ -130,7 +149,7 @@ export default function LaunchForm() {
           <p className="text-[11px] text-muted -mt-3">socials show on the token page and are ready to submit to DexScreener.</p>
 
           <div>
-            <label className="label">{rh ? "graduation market cap" : "starting market cap"}</label>
+            <label className="label">{v3 ? "opening market cap" : rh ? "graduation market cap" : "starting market cap"}</label>
             <div className="flex gap-2">
               {[5000, 10000, 25000].map((v) => (
                 <button key={v} className={f.startMcUsd === v ? "chip-on" : "chip hover:border-beryl-dim/50"} onClick={() => upd("startMcUsd", v)}>${v / 1000}k</button>
@@ -138,7 +157,9 @@ export default function LaunchForm() {
               <input className="input w-28 ml-auto" type="number" value={f.startMcUsd} onChange={(e) => upd("startMcUsd", Number(e.target.value))} />
             </div>
             <p className="text-[11px] text-muted mt-2">
-              {rh ? (
+              {v3 ? (
+                <>v3 pool opens at ${f.startMcUsd.toLocaleString("en-US")} fully-diluted · buyable by bots at once</>
+              ) : rh ? (
                 <>curve graduates to Uniswap v3 at ${f.startMcUsd.toLocaleString("en-US")}</>
               ) : (
                 <>≈ {(f.startMcUsd / ethUsd).toLocaleString("en-US", { maximumFractionDigits: 4 })} ETH pool ·
@@ -148,8 +169,16 @@ export default function LaunchForm() {
             </p>
           </div>
 
-          {/* fee band — Base has a dynamic base/max band; Robinhood uses a single flat fee */}
-          {rh ? (
+          {/* fee: v3 pools use the fixed 1% tier; curve uses a flat fee; Base a band */}
+          {v3 ? (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="label !mb-0">pool fee</span>
+                <span className="text-xs text-beryl">1%</span>
+              </div>
+              <p className="text-[11px] text-muted">fixed Uniswap v3 fee tier · LP fees locked, split creator / platform</p>
+            </div>
+          ) : rh ? (
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="label !mb-0">trading fee</span>
@@ -206,10 +235,12 @@ export default function LaunchForm() {
           )}
 
           <button className="btn-primary w-full py-3 text-base" disabled={!isConnected || !valid || busy || imgUploading} onClick={async () => { try { const tok = await launch({ ...f, ethUsd, venue }); router.push(`/token/${tok}`); } catch {} }}>
-            {!isConnected ? "Connect wallet to launch" : busy ? "Deploying…" : imgUploading ? "Uploading image…" : `Launch on ${rh ? "Robinhood Chain" : "Base"}`}
+            {!isConnected ? "Connect wallet to launch" : busy ? "Deploying…" : imgUploading ? "Uploading image…" : v3 ? "Launch v3 pool on Robinhood" : `Launch on ${rh ? "Robinhood Chain" : "Base"}`}
           </button>
           <p className="text-[11px] text-muted leading-relaxed">
-            {rh
+            {v3
+              ? "Direct Uniswap v3 pool on Robinhood Chain · single-sided, LP locked · bot-tradeable instantly · 20% vested"
+              : rh
               ? "Fair bonding curve on Robinhood Chain · graduates to Uniswap v3 · 20% vested"
               : "Deploys via the 0xB20f… precompile · admin-less · 80% pool / 20% vested"}
           </p>

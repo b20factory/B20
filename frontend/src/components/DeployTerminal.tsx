@@ -22,6 +22,7 @@ const HELP = [
   "  launch                                     guided launch (beryl walks you through)",
   "  launch --name <n> --symbol <s>             one-shot launch",
   "         [--chain base|robinhood]            venue (default base)",
+  "         [--v3]                               robinhood: launch a Uniswap v3 pool (bot-buyable)",
   "         [--base 3] [--max 5] [--mc 10000]",
   "         [--receive eth|token|both]          how you receive your fee share (base only)",
   "         [--image <url>] [--bio <text>]      token image URL + short bio",
@@ -31,25 +32,28 @@ const HELP = [
 ];
 
 // guided-launch wizard ------------------------------------------------------
-type Step = "chain" | "name" | "symbol" | "fee" | "receive" | "mc" | "image" | "bio" | "x" | "github" | "telegram" | "confirm";
+type Step = "chain" | "rhtype" | "name" | "symbol" | "fee" | "receive" | "mc" | "image" | "bio" | "x" | "github" | "telegram" | "confirm";
 type Draft = {
-  venue?: VenueId; name?: string; symbol?: string; base?: number; max?: number;
+  venue?: VenueId; rhVenue?: "curve" | "v3"; name?: string; symbol?: string; base?: number; max?: number;
   receive?: number; mc?: number; image?: string; bio?: string; x?: string; github?: string; telegram?: string;
 };
-const ORDER: Step[] = ["chain", "name", "symbol", "fee", "receive", "mc", "image", "bio", "x", "github", "telegram", "confirm"];
+const ORDER: Step[] = ["chain", "rhtype", "name", "symbol", "fee", "receive", "mc", "image", "bio", "x", "github", "telegram", "confirm"];
 const RECV = ["ETH", "token", "both"];
 
 function prompt(step: Step, d: Draft): string {
   const rh = d.venue === "robinhood";
   switch (step) {
     case "chain": return `where do we launch? \`base\` (native B20) or \`robinhood\` (Robinhood Chain)${rhLive ? "" : " — robinhood coming online soon"}. hit enter for base.`;
+    case "rhtype": return "market type? `curve` (bonding curve, graduates to v3) or `v3` (Uniswap v3 pool now, buyable by bots). hit enter for curve.";
     case "name": return "what should the token be called?";
     case "symbol": return `nice — "${d.name}". ticker/symbol? (e.g. CAT, max 11 chars)`;
     case "fee": return rh
       ? "trading fee? type like `3` for 3%, or hit enter for the default [3]."
       : "fee band? type like `3 5` for base 3% / max 5%, or hit enter for the default [3-5].";
     case "receive": return "receive your fee share in `eth`, `token`, or `both`? (platform cut is always eth) hit enter for eth.";
-    case "mc": return rh
+    case "mc": return d.rhVenue === "v3"
+      ? "opening market cap in USD? the v3 pool opens at this FDV. hit enter for the default [10000]."
+      : rh
       ? "graduation market cap in USD? the token moves to Uniswap v3 there. hit enter for the default [10000]."
       : "starting market cap in USD? hit enter for the default [10000].";
     case "image": return "token photo? paste an image URL (this shows on the feed card + socials), or hit enter to skip.";
@@ -57,8 +61,12 @@ function prompt(step: Step, d: Draft): string {
     case "x": return "X / twitter? paste @handle or a link, or hit enter to skip.";
     case "github": return "GitHub? paste @handle or a link, or hit enter to skip.";
     case "telegram": return "Telegram? paste @handle or a t.me link, or hit enter to skip.";
-    case "confirm":
-      return `review → [${rh ? "robinhood" : "base"}] ${d.name} ($${d.symbol})  fee ${d.base}%${rh ? "" : `/${d.max}%`}${rh ? "" : `  recv ${RECV[d.receive ?? 0]}`}  ${rh ? "grad" : "start"} mc $${d.mc}${d.image ? "  img" : ""}${d.bio ? "  bio" : ""}${d.x ? "  x" : ""}${d.github ? "  gh" : ""}${d.telegram ? "  tg" : ""}\n        type \`yes\` to deploy, \`back\` to fix, \`cancel\` to abort.`;
+    case "confirm": {
+      const v3 = d.rhVenue === "v3";
+      const venueLbl = rh ? (v3 ? "robinhood·v3" : "robinhood·curve") : "base";
+      const feeLbl = v3 ? "fee 1%" : `fee ${d.base}%${rh ? "" : `/${d.max}%`}`;
+      return `review → [${venueLbl}] ${d.name} ($${d.symbol})  ${feeLbl}${rh ? "" : `  recv ${RECV[d.receive ?? 0]}`}  ${v3 ? "open" : rh ? "grad" : "start"} mc $${d.mc}${d.image ? "  img" : ""}${d.bio ? "  bio" : ""}${d.x ? "  x" : ""}${d.github ? "  gh" : ""}${d.telegram ? "  tg" : ""}\n        type \`yes\` to deploy, \`back\` to fix, \`cancel\` to abort.`;
+    }
   }
 }
 
@@ -148,22 +156,25 @@ export default function DeployTerminal() {
   async function finishWizard(d: Draft) {
     setWiz(null);
     const rh = d.venue === "robinhood";
+    const v3 = rh && d.rhVenue === "v3";
     const input: LaunchInput = {
       name: d.name!, symbol: (d.symbol || "").toUpperCase(),
       startMcUsd: d.mc ?? 10000, ethUsd,
       baseFeePct: d.base ?? 3, maxFeePct: d.max ?? d.base ?? 5,
       feeReceiveType: d.receive ?? 0,
-      venue: d.venue ?? "base",
+      venue: d.venue ?? "base", rhVenue: d.rhVenue ?? "curve",
       imageUrl: d.image ?? "", description: d.bio ?? "",
       x: d.x ?? "", github: d.github ?? "", telegram: d.telegram ?? "",
     };
     if (input.maxFeePct < input.baseFeePct) input.maxFeePct = input.baseFeePct;
-    push([{ t: "out", s: `› deploying on ${rh ? "Robinhood Chain" : "Base"}… (confirm in your wallet)` }]);
+    push([{ t: "out", s: `› deploying on ${rh ? (v3 ? "Robinhood Chain (v3 pool)" : "Robinhood Chain (curve)") : "Base"}… (confirm in your wallet)` }]);
     try {
       const tok = await launch(input);
       push([
         { t: "ok", s: `✓ deployed — CA ${tok}` },
-        rh
+        v3
+          ? { t: "ok", s: "  live Uniswap v3 pool · LP locked · buyable by any wallet or bot" }
+          : rh
           ? { t: "ok", s: "  bonding curve live · graduates to Uniswap v3 at the cap" }
           : { t: "ok", s: "  native B20 · admin-less · not mintable · no transfer tax" },
         { t: "bot", s: "open the token page:", href: `/token/${tok}` },
@@ -187,8 +198,11 @@ export default function DeployTerminal() {
     if (low === "back") {
       const idx = ORDER.indexOf(w.step);
       let prev = ORDER[Math.max(0, idx - 1)];
-      // robinhood path skips the receive step
-      if (prev === "receive" && w.draft.venue === "robinhood") prev = "fee";
+      const d0 = w.draft;
+      // honor the same step-skips the forward flow uses
+      if (prev === "rhtype" && d0.venue !== "robinhood") prev = "chain";
+      if ((prev === "fee" || prev === "receive") && d0.rhVenue === "v3") prev = "symbol";
+      if (prev === "receive" && d0.venue === "robinhood") prev = "fee";
       const nw = { step: prev, draft: w.draft };
       setWiz(nw); say(prompt(prev, nw.draft)); return;
     }
@@ -200,7 +214,11 @@ export default function DeployTerminal() {
       case "chain": {
         const v: VenueId = low.startsWith("rob") || low === "rh" ? "robinhood" : "base";
         if (v === "robinhood" && !rhLive) { say("robinhood chain isn't live on b20factory yet — launching on `base` for now, or `cancel`."); return; }
-        d.venue = v; next = "name"; break;
+        d.venue = v; next = v === "robinhood" ? "rhtype" : "name"; break;
+      }
+      case "rhtype": {
+        d.rhVenue = low === "v3" || low.includes("uni") ? "v3" : "curve";
+        next = "name"; break;
       }
       case "name":
         if (!s) { say("give it a name first — anything works."); return; }
@@ -208,7 +226,8 @@ export default function DeployTerminal() {
       case "symbol": {
         const sym = s.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 11);
         if (!sym) { say("the ticker needs at least one letter or number. try again."); return; }
-        d.symbol = sym; next = "fee"; break;
+        // v3 pools use the fixed 1% fee tier — skip the fee question entirely
+        d.symbol = sym; next = d.rhVenue === "v3" ? "mc" : "fee"; break;
       }
       case "fee": {
         if (!s) { d.base = 3; d.max = 5; }
@@ -304,27 +323,34 @@ export default function DeployTerminal() {
       if (!args.name && !args.symbol) { startWizard(); return; }
       if (!isConnected) { push([{ t: "err", s: "connect a wallet first — run `connect`" }]); return; }
       if (!args.name || !args.symbol) { push([{ t: "err", s: 'usage: launch --name "My Token" --symbol MTK [--chain base|robinhood] [--base 3] [--max 5] [--mc 10000] [--image <url>]  — or just `launch` for guided mode' }]); return; }
-      const venue: VenueId = (args.chain || "").toLowerCase().startsWith("rob") ? "robinhood" : "base";
+      const chainArg = (args.chain || "").toLowerCase();
+      const venue: VenueId = chainArg.startsWith("rob") ? "robinhood" : "base";
+      // --v3 flag, or --chain robinhood-v3 / robinhoodv3
+      const wantV3 = "v3" in args || chainArg.includes("v3");
+      const rhVenue: "curve" | "v3" = venue === "robinhood" && wantV3 ? "v3" : "curve";
       if (venue === "robinhood" && !rhLive) { push([{ t: "err", s: "robinhood chain isn't live on b20factory yet" }]); return; }
       const input: LaunchInput = {
         name: args.name, symbol: args.symbol.toUpperCase(),
         startMcUsd: Number(args.mc ?? 10000), ethUsd,
         baseFeePct: Number(args.base ?? 3), maxFeePct: Number(args.max ?? args.base ?? 5),
         feeReceiveType: args.receive === "token" ? 1 : args.receive === "both" ? 2 : 0,
-        venue,
+        venue, rhVenue,
         imageUrl: args.image ?? "", description: args.bio ?? "",
         x: args.x ?? "", github: args.github ?? "", telegram: args.tg ?? args.telegram ?? "",
       };
       if (input.maxFeePct < input.baseFeePct) input.maxFeePct = input.baseFeePct;
+      const isV3 = rhVenue === "v3";
       push([
-        { t: "dim", s: `  [${venue}] base ${input.baseFeePct}%${venue === "base" ? ` / max ${input.maxFeePct}%` : ""} · mc $${input.startMcUsd} · 20% vested${input.imageUrl ? " · image set" : ""}` },
-        { t: "out", s: `› deploying on ${venue === "robinhood" ? "Robinhood Chain" : "Base"}… (confirm in wallet)` },
+        { t: "dim", s: `  [${venue}${isV3 ? "·v3" : ""}] ${isV3 ? "fee 1%" : `base ${input.baseFeePct}%${venue === "base" ? ` / max ${input.maxFeePct}%` : ""}`} · mc $${input.startMcUsd} · 20% vested${input.imageUrl ? " · image set" : ""}` },
+        { t: "out", s: `› deploying on ${venue === "robinhood" ? (isV3 ? "Robinhood Chain (v3 pool)" : "Robinhood Chain") : "Base"}… (confirm in wallet)` },
       ]);
       try {
         const tok = await launch(input);
         push([
           { t: "ok", s: `✓ deployed — CA ${tok}` },
-          venue === "robinhood"
+          isV3
+            ? { t: "ok", s: "  live Uniswap v3 pool · LP locked · buyable by any wallet or bot" }
+            : venue === "robinhood"
             ? { t: "ok", s: "  bonding curve live · graduates to Uniswap v3 at the cap" }
             : { t: "ok", s: "  native B20 · admin-less · not mintable · no transfer tax" },
           { t: "bot", s: "open the token page:", href: `/token/${tok}` },

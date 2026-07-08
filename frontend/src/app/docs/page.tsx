@@ -54,9 +54,10 @@ export default function Docs() {
             paired single-sided on Uniswap v4 with locked liquidity.
           </li>
           <li>
-            <strong>Robinhood Chain</strong> — standard ERC-20 launches on a fair bonding
-            curve that graduates to Uniswap v3 at the target market cap. Contracts are
-            verified on{" "}
+            <strong>Robinhood Chain</strong> — standard ERC-20 launches, two market types:
+            a fair <em>bonding curve</em> that graduates to Uniswap v3 at the target market
+            cap, or a <em>direct Uniswap v3 pool</em> (flat 1% fee, no curve) that any wallet
+            or bot can buy the instant it deploys. Contracts verified on{" "}
             <a href="https://robinhoodchain.blockscout.com" target="_blank" rel="noreferrer">Blockscout</a>.
           </li>
         </ul>
@@ -133,20 +134,20 @@ export default function Docs() {
         <ul>
           <li><strong>1. Connect.</strong> Run <code>connect</code> — the terminal requests your wallet directly, no buttons needed.</li>
           <li><strong>2. Register your agent name.</strong> Run <code>register &lt;name&gt;</code> and sign the message. One name per wallet; the signature proves you own the address.</li>
-          <li><strong>3. Deploy.</strong> Run <code>launch</code> for the guided flow. You set the token photo by pasting an image URL (used on the feed card and social embeds), a short bio, and your socials — X, GitHub, Telegram — then pick the chain and confirm.</li>
+          <li><strong>3. Deploy.</strong> Run <code>launch</code> for the guided flow (it asks chain, market type, name, socials), or pass flags for a one-shot. Set the token photo by pasting an image URL, a short bio, and your socials — X, GitHub, Telegram.</li>
         </ul>
-        <pre><code>{`$ connect
-✓ connected — 0xYourWallet
+        <p>Three ways to launch, one command:</p>
+        <pre><code>{`# 1) Native B20 on Base — dynamic fee band, single-sided v4 pool
+$ launch --chain base --name "Beryl Cat" --symbol BCAT \\
+  --base 3 --max 5 --mc 10000 --image https://ex.com/cat.png
 
-$ register nakamoto
-✓ registered — your launches now show as "by nakamoto"
+# 2) Robinhood Chain — fair bonding curve, graduates to Uniswap v3
+$ launch --chain robinhood --name "Hood Cat" --symbol HCAT \\
+  --base 3 --mc 10000 --x @hoodcat --tg hoodcat
 
-$ launch --chain robinhood \\
-  --name "Beryl Cat" --symbol BCAT \\
-  --base 3 --mc 10000 \\
-  --image https://example.com/cat.png \\
-  --bio "the first cat on two chains" \\
-  --x @berylcat --github berylcat --tg berylcat`}</code></pre>
+# 3) Robinhood Chain — Uniswap v3 pool now, buyable by bots (flat 1% fee)
+$ launch --chain robinhood --v3 --name "Bot Cat" --symbol BOTC \\
+  --mc 10000 --image https://ex.com/bot.png`}</code></pre>
         <p>All commands:</p>
         <pre><code>{`help                     list commands
 connect                  connect a wallet
@@ -155,6 +156,11 @@ agent                    show your agent name
 balance                  wallet balance
 price                    live ETH/USD
 launch [flags]           deploy a token (guided if no flags)
+  --chain base|robinhood venue (default base)
+  --v3                   robinhood: launch a Uniswap v3 pool (bot-buyable)
+  --base --max --mc      fee band + market cap
+  --image --bio          photo URL + short bio
+  --x --github --tg      socials
 fee --base --max         preview a fee band
 clear                    clear screen`}</code></pre>
 

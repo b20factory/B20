@@ -5,7 +5,7 @@ import { usePublicClient } from "wagmi";
 import { formatEther, keccak256, encodeAbiParameters, createPublicClient, http } from "viem";
 import { base as baseChain, baseSepolia } from "viem/chains";
 import { ADDR, CHAIN_ID, ERC20_ABI, FACTORY_ABI, POOL_FEE, POOL_TICK_SPACING, IS_TESTNET } from "@/lib/contracts";
-import { RH, RH_FACTORY_ABI, RH_CURVE_ABI, rhLive, robinhoodChain, type VenueId } from "@/lib/chains";
+import { RH, RH_V3, RH_FACTORY_ABI, RH_CURVE_ABI, RH_V3_POOL_ABI, VENUE_V3, v3PriceEth, rhLive, robinhoodChain, type VenueId } from "@/lib/chains";
 import { ChainBadge, BaseLogo, RobinhoodLogo } from "@/components/ChainLogo";
 import { getAllTokenMeta, type TokenMeta } from "@/lib/tokenMeta";
 import { getAgents, shortAddr } from "@/lib/agents";
@@ -146,12 +146,19 @@ export default function Explore() {
                 rhc.readContract({ address: tok, abi: ERC20_ABI, functionName: "symbol" }),
                 rhc.readContract({ address: RH.factory, abi: RH_FACTORY_ABI, functionName: "launchOf", args: [tok] }) as Promise<readonly [string, string, string, string, string, number]>,
               ]);
-              const curve = launch[1] as `0x${string}`;
+              const market = launch[1] as `0x${string}`;
               const creator = String(launch[3] || "");
+              const isV3 = Number(launch[5]) === VENUE_V3;
               let priceEth = 0;
               try {
-                const px = await rhc.readContract({ address: curve, abi: RH_CURVE_ABI, functionName: "priceX18" }) as bigint;
-                priceEth = Number(formatEther(px));
+                if (isV3) {
+                  const tokenIs0 = tok.toLowerCase() < RH_V3.weth.toLowerCase();
+                  const slot0 = await rhc.readContract({ address: market, abi: RH_V3_POOL_ABI, functionName: "slot0" }) as readonly [bigint, number, number, number, number, number, boolean];
+                  priceEth = v3PriceEth(slot0[0], tokenIs0);
+                } else {
+                  const px = await rhc.readContract({ address: market, abi: RH_CURVE_ABI, functionName: "priceX18" }) as bigint;
+                  priceEth = Number(formatEther(px));
+                }
               } catch {}
               const m: TokenMeta | undefined = meta[tok.toLowerCase()];
               return {
@@ -537,7 +544,41 @@ function CardEl({ c, ethUsd, agents }: { c: Card; ethUsd: number; agents: Record
         <Link href={`/token/${c.token}`} className="chip-on flex-1 justify-center text-[11px] py-1">Buy</Link>
         <Link href={`/token/${c.token}`} className="chip flex-1 justify-center text-[11px] py-1 hover:border-bad/40 hover:text-bad">Sell</Link>
         <Link href={`/token/${c.token}`} className="chip text-[11px] py-1 px-2.5 hover:border-beryl-dim">Chart</Link>
+        <CopyCA token={c.token} />
       </div>
     </div>
+  );
+}
+
+// Copy the token contract address, with a brief "Copied" confirmation.
+function CopyCA({ token }: { token: `0x${string}` }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      aria-label="Copy contract address"
+      title={`Copy CA ${token}`}
+      onClick={async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          await navigator.clipboard.writeText(token);
+        } catch {
+          const ta = document.createElement("textarea");
+          ta.value = token; document.body.appendChild(ta); ta.select();
+          try { document.execCommand("copy"); } catch {}
+          document.body.removeChild(ta);
+        }
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1200);
+      }}
+      className={`chip text-[11px] py-1 px-2.5 inline-flex items-center gap-1 transition-colors ${copied ? "border-beryl/50 text-beryl" : "hover:border-beryl-dim"}`}
+    >
+      {copied ? (
+        <><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>Copied</>
+      ) : (
+        <><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>CA</>
+      )}
+    </button>
   );
 }

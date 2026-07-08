@@ -38,6 +38,53 @@ export const RH = {
 
 export const rhLive = /^0x[0-9a-fA-F]{40}$/.test(RH.factory);
 
+// Canonical Uniswap v3 deployment on Robinhood Chain (same as Primehod uses).
+// A v3 launch seeds a real pool that any wallet or bot can trade via SwapRouter02.
+export const RH_V3 = {
+  router: "0xCaf681a66D020601342297493863E78C959E5cb2" as `0x${string}`, // SwapRouter02
+  npm: "0x73991a25C818Bf1f1128dEAaB1492D45638DE0D3" as `0x${string}`,
+  weth: "0x0bd7d308f8e1639fab988df18a8011f41eacad73" as `0x${string}`,
+  fee: 10000, // 1% tier
+};
+
+// venue codes from PrimehodFactory
+export const VENUE_CURVE = 0;
+export const VENUE_V3 = 1;
+
+// ETH-per-whole-token from a v3 pool's sqrtPriceX96.
+export function v3PriceEth(sqrtPriceX96: bigint, tokenIs0: boolean): number {
+  const ratio = Number(sqrtPriceX96) / 2 ** 96; // sqrt(token1 per token0)
+  const price1per0 = ratio * ratio;
+  return tokenIs0 ? price1per0 : price1per0 > 0 ? 1 / price1per0 : 0;
+}
+
+// Starting-market-cap (USD) -> v3 price tick (WETH per token), clamped to range.
+export function mcToPriceTick(startMcUsd: number, ethUsd: number): number {
+  const priceEth = startMcUsd / ethUsd / 1e9; // 1B fixed supply
+  const tick = Math.floor(Math.log(priceEth) / Math.log(1.0001));
+  return Math.max(-850000, Math.min(0, tick));
+}
+
+export const RH_V3_POOL_ABI = [
+  { type: "function", name: "slot0", stateMutability: "view", inputs: [], outputs: [
+    { name: "sqrtPriceX96", type: "uint160" }, { name: "tick", type: "int24" },
+    { name: "observationIndex", type: "uint16" }, { name: "observationCardinality", type: "uint16" },
+    { name: "observationCardinalityNext", type: "uint16" }, { name: "feeProtocol", type: "uint8" }, { name: "unlocked", type: "bool" },
+  ] },
+  { type: "function", name: "token0", stateMutability: "view", inputs: [], outputs: [{ type: "address" }] },
+] as const;
+
+export const RH_V3_ROUTER_ABI = [
+  { type: "function", name: "exactInputSingle", stateMutability: "payable", inputs: [{
+    name: "params", type: "tuple", components: [
+      { name: "tokenIn", type: "address" }, { name: "tokenOut", type: "address" }, { name: "fee", type: "uint24" },
+      { name: "recipient", type: "address" }, { name: "amountIn", type: "uint256" },
+      { name: "amountOutMinimum", type: "uint256" }, { name: "sqrtPriceLimitX96", type: "uint160" },
+    ] }], outputs: [{ name: "amountOut", type: "uint256" }] },
+  { type: "function", name: "multicall", stateMutability: "payable", inputs: [{ name: "data", type: "bytes[]" }], outputs: [{ type: "bytes[]" }] },
+  { type: "function", name: "unwrapWETH9", stateMutability: "payable", inputs: [{ name: "amountMinimum", type: "uint256" }, { name: "recipient", type: "address" }], outputs: [] },
+] as const;
+
 // Primehod-style factory ABI (deployed for B20factory on Robinhood Chain).
 export const RH_FACTORY_ABI = [
   {
@@ -66,6 +113,11 @@ export const RH_FACTORY_ABI = [
   },
   { type: "function", name: "metadataOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "string" }] },
   { type: "function", name: "ethUsdPrice", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+  // Direct Uniswap v3 launch: real pool, tradeable by any wallet or bot.
+  { type: "function", name: "createTokenV3", stateMutability: "nonpayable", inputs: [
+    { name: "name", type: "string" }, { name: "symbol", type: "string" },
+    { name: "priceTick", type: "int24" }, { name: "metadataURI", type: "string" },
+  ], outputs: [{ name: "token", type: "address" }, { name: "pool", type: "address" }] },
   {
     type: "event", name: "TokenLaunched",
     inputs: [

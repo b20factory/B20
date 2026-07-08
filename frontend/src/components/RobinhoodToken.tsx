@@ -3,8 +3,9 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useAccount, useWalletClient } from "wagmi";
 import { createPublicClient, http, parseEther, formatEther } from "viem";
-import { RH, RH_FACTORY_ABI, RH_CURVE_ABI, robinhoodChain, type VenueId } from "@/lib/chains";
+import { RH, RH_V3, RH_FACTORY_ABI, RH_CURVE_ABI, RH_V3_POOL_ABI, RH_V3_ROUTER_ABI, VENUE_V3, v3PriceEth, robinhoodChain, type VenueId } from "@/lib/chains";
 import { ERC20_ABI } from "@/lib/contracts";
+import { encodeFunctionData } from "viem";
 import { RobinhoodLogo } from "@/components/ChainLogo";
 import { getTokenMeta, type TokenMeta } from "@/lib/tokenMeta";
 import { getAgents, shortAddr } from "@/lib/agents";
@@ -13,8 +14,12 @@ const ZERO = "0x0000000000000000000000000000000000000000";
 const rhc = createPublicClient({ chain: robinhoodChain, transport: http(RH.rpcProxy) });
 
 type Info = {
+  venue: "curve" | "v3";
   name: string; symbol: string; image: string; creator: string;
-  curve: `0x${string}`; priceEth: number; ethRaised: number; gradCap: number;
+  curve: `0x${string}`;      // curve contract OR (v3) the pool address
+  pool: `0x${string}`;       // v3 pool address
+  tokenIs0: boolean;         // v3: token is token0 in the pool
+  priceEth: number; ethRaised: number; gradCap: number;
   graduated: boolean; feeBps: number; agent?: string;
   website?: string; x?: string; github?: string; telegram?: string; bio?: string;
 };
@@ -43,16 +48,28 @@ export default function RobinhoodToken({ token }: { token: `0x${string}` }) {
         getTokenMeta(token),
         getAgents(),
       ]);
-      const curve = launch[1] as `0x${string}`;
+      const market = launch[1] as `0x${string}`; // curve contract, or the v3 pool
+      const venue: "curve" | "v3" = Number(launch[5]) === VENUE_V3 ? "v3" : "curve";
       let creator = String(launch[3] || "");
       let priceEth = 0, ethRaised = 0, gradCap = 0, graduated = false, feeBps = 300;
-      if (curve && curve !== ZERO) {
+      let tokenIs0 = false;
+      if (venue === "v3" && market && market !== ZERO) {
+        // v3: price straight off the pool's spot price; it's a real pool, no
+        // curve — any bot can trade it. Fee is the fixed 1% tier (100 bps for
+        // the shared /100 display; RH_V3.fee is in Uniswap's 1e-6 units).
+        feeBps = 100;
+        tokenIs0 = token.toLowerCase() < RH_V3.weth.toLowerCase();
+        try {
+          const slot0 = await rhc.readContract({ address: market, abi: RH_V3_POOL_ABI, functionName: "slot0" }) as readonly [bigint, number, number, number, number, number, boolean];
+          priceEth = v3PriceEth(slot0[0], tokenIs0);
+        } catch {}
+      } else if (market && market !== ZERO) {
         const [px, er, gc, gr, cf] = await Promise.all([
-          rhc.readContract({ address: curve, abi: RH_CURVE_ABI, functionName: "priceX18" }).catch(() => 0n),
-          rhc.readContract({ address: curve, abi: RH_CURVE_ABI, functionName: "ethRaised" }).catch(() => 0n),
-          rhc.readContract({ address: curve, abi: RH_CURVE_ABI, functionName: "graduationCap" }).catch(() => 0n),
-          rhc.readContract({ address: curve, abi: RH_CURVE_ABI, functionName: "graduated" }).catch(() => false),
-          rhc.readContract({ address: curve, abi: RH_CURVE_ABI, functionName: "currentFeeBps" }).catch(() => 300n),
+          rhc.readContract({ address: market, abi: RH_CURVE_ABI, functionName: "priceX18" }).catch(() => 0n),
+          rhc.readContract({ address: market, abi: RH_CURVE_ABI, functionName: "ethRaised" }).catch(() => 0n),
+          rhc.readContract({ address: market, abi: RH_CURVE_ABI, functionName: "graduationCap" }).catch(() => 0n),
+          rhc.readContract({ address: market, abi: RH_CURVE_ABI, functionName: "graduated" }).catch(() => false),
+          rhc.readContract({ address: market, abi: RH_CURVE_ABI, functionName: "currentFeeBps" }).catch(() => 300n),
         ]);
         priceEth = Number(formatEther(px as bigint));
         ethRaised = Number(formatEther(er as bigint));
@@ -64,9 +81,10 @@ export default function RobinhoodToken({ token }: { token: `0x${string}` }) {
       if (m?.creator) creator = m.creator;
       const agent = creator ? agents[creator.toLowerCase()] : undefined;
       setInfo({
-        name: String(name), symbol: String(symbol),
+        venue, name: String(name), symbol: String(symbol),
         image: m?.image || "", creator,
-        curve, priceEth, ethRaised, gradCap, graduated, feeBps, agent,
+        curve: market, pool: market, tokenIs0,
+        priceEth, ethRaised, gradCap, graduated, feeBps, agent,
         website: m?.website, x: m?.x, github: m?.github, telegram: m?.telegram, bio: m?.description,
       });
       if (wallet) {
@@ -83,8 +101,19 @@ export default function RobinhoodToken({ token }: { token: `0x${string}` }) {
   useEffect(() => {
     let alive = true;
     (async () => {
-      if (!info?.curve || info.curve === ZERO) return;
+      if (!info || info.curve === ZERO) return;
       try {
+        // v3: estimate from the pool spot price and the 1% fee.
+        if (info.venue === "v3") {
+          if (tab === "buy" && parseFloat(buyAmt) > 0 && info.priceEth > 0) {
+            const out = (parseFloat(buyAmt) * 0.99) / info.priceEth;
+            if (alive) setQuote(`≈ ${out.toLocaleString(undefined, { maximumFractionDigits: 0 })} ${info.symbol}`);
+          } else if (tab === "sell" && parseFloat(sellAmt) > 0) {
+            const out = parseFloat(sellAmt) * info.priceEth * 0.99;
+            if (alive) setQuote(`≈ ${out.toFixed(6)} ETH`);
+          } else setQuote("");
+          return;
+        }
         if (tab === "buy" && parseFloat(buyAmt) > 0) {
           const [out] = await rhc.readContract({ address: info.curve, abi: RH_CURVE_ABI, functionName: "quoteBuy", args: [parseEther(buyAmt)] }) as [bigint, bigint];
           if (alive) setQuote(`≈ ${Number(formatEther(out)).toLocaleString(undefined, { maximumFractionDigits: 0 })} ${info.symbol}`);
@@ -97,17 +126,31 @@ export default function RobinhoodToken({ token }: { token: `0x${string}` }) {
     return () => { alive = false; };
   }, [tab, buyAmt, sellAmt, info]);
 
+  const SLIP = 0.12; // v3 pools start thin; a generous buffer avoids reverts
+
   async function buy() {
     if (!wc || !info) return;
     const eth = parseFloat(buyAmt);
     if (!(eth > 0)) { setErr("enter an ETH amount"); return; }
     setErr(""); setMsg(""); setState("swapping");
     try {
-      const h = await wc.writeContract({
-        address: info.curve, abi: RH_CURVE_ABI, functionName: "buy", args: [0n],
-        value: parseEther(buyAmt), chain: robinhoodChain,
-      });
-      await rhc.waitForTransactionReceipt({ hash: h });
+      if (info.venue === "v3") {
+        const ethIn = parseEther(buyAmt);
+        const estOut = info.priceEth > 0 ? (eth * 0.99) / info.priceEth : 0;
+        const minOut = parseEther(Math.max(0, estOut * (1 - SLIP)).toFixed(18));
+        const h = await wc.writeContract({
+          address: RH_V3.router, abi: RH_V3_ROUTER_ABI, functionName: "exactInputSingle",
+          args: [{ tokenIn: RH_V3.weth, tokenOut: token, fee: RH_V3.fee, recipient: wallet!, amountIn: ethIn, amountOutMinimum: minOut, sqrtPriceLimitX96: 0n }],
+          value: ethIn, chain: robinhoodChain,
+        });
+        await rhc.waitForTransactionReceipt({ hash: h });
+      } else {
+        const h = await wc.writeContract({
+          address: info.curve, abi: RH_CURVE_ABI, functionName: "buy", args: [0n],
+          value: parseEther(buyAmt), chain: robinhoodChain,
+        });
+        await rhc.waitForTransactionReceipt({ hash: h });
+      }
       setState("done"); setMsg(`Bought ${info.symbol} ✓`);
       await load();
     } catch (e: any) {
@@ -119,19 +162,31 @@ export default function RobinhoodToken({ token }: { token: `0x${string}` }) {
     if (!wc || !info) return;
     const amt = parseFloat(sellAmt);
     if (!(amt > 0)) { setErr("enter a token amount"); return; }
-    const amtWei = parseEther(sellAmt);
-    if (amtWei > tokenBal) { setErr("amount exceeds balance"); return; }
+    let amtWei = parseEther(sellAmt);
+    if (amtWei > tokenBal) amtWei = tokenBal;
+    if (amtWei === 0n) { setErr("amount exceeds balance"); return; }
     setErr(""); setMsg("");
     try {
-      const allowance = await rhc.readContract({ address: token, abi: ERC20_ABI, functionName: "allowance", args: [wallet!, info.curve] }) as bigint;
+      const spender = info.venue === "v3" ? RH_V3.router : info.curve;
+      const allowance = await rhc.readContract({ address: token, abi: ERC20_ABI, functionName: "allowance", args: [wallet!, spender] }) as bigint;
       if (allowance < amtWei) {
         setState("approving");
-        const ah = await wc.writeContract({ address: token, abi: ERC20_ABI, functionName: "approve", args: [info.curve, amtWei], chain: robinhoodChain });
+        const ah = await wc.writeContract({ address: token, abi: ERC20_ABI, functionName: "approve", args: [spender, amtWei], chain: robinhoodChain });
         await rhc.waitForTransactionReceipt({ hash: ah });
       }
       setState("swapping");
-      const h = await wc.writeContract({ address: info.curve, abi: RH_CURVE_ABI, functionName: "sell", args: [amtWei, 0n], chain: robinhoodChain });
-      await rhc.waitForTransactionReceipt({ hash: h });
+      if (info.venue === "v3") {
+        const estEth = Number(formatEther(amtWei)) * info.priceEth * 0.99;
+        const minEth = parseEther(Math.max(0, estEth * (1 - SLIP)).toFixed(18));
+        // swap token->WETH into the router, then unwrap to native ETH for the seller
+        const swapData = encodeFunctionData({ abi: RH_V3_ROUTER_ABI, functionName: "exactInputSingle", args: [{ tokenIn: token, tokenOut: RH_V3.weth, fee: RH_V3.fee, recipient: "0x0000000000000000000000000000000000000002", amountIn: amtWei, amountOutMinimum: minEth, sqrtPriceLimitX96: 0n }] });
+        const unwrapData = encodeFunctionData({ abi: RH_V3_ROUTER_ABI, functionName: "unwrapWETH9", args: [minEth, wallet!] });
+        const h = await wc.writeContract({ address: RH_V3.router, abi: RH_V3_ROUTER_ABI, functionName: "multicall", args: [[swapData, unwrapData]], chain: robinhoodChain });
+        await rhc.waitForTransactionReceipt({ hash: h });
+      } else {
+        const h = await wc.writeContract({ address: info.curve, abi: RH_CURVE_ABI, functionName: "sell", args: [amtWei, 0n], chain: robinhoodChain });
+        await rhc.waitForTransactionReceipt({ hash: h });
+      }
       setState("done"); setMsg("Sold for ETH ✓"); setSellAmt("");
       await load();
     } catch (e: any) {
@@ -184,20 +239,29 @@ export default function RobinhoodToken({ token }: { token: `0x${string}` }) {
         <div className="card p-5 space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
             <div><div className="text-muted text-xs">Price</div><div className="font-mono tabular text-text">{info.priceEth > 0 ? `${info.priceEth.toFixed(10).replace(/0+$/, "").replace(/\.$/, "")} ETH` : "--"}</div></div>
-            <div><div className="text-muted text-xs">Raised</div><div className="font-mono tabular text-text">{info.ethRaised.toFixed(4)} ETH</div></div>
+            <div><div className="text-muted text-xs">{info.venue === "v3" ? "Venue" : "Raised"}</div><div className="font-mono tabular text-text">{info.venue === "v3" ? "Uniswap v3" : `${info.ethRaised.toFixed(4)} ETH`}</div></div>
             <div><div className="text-muted text-xs">Fee</div><div className="font-mono tabular text-text">{(info.feeBps / 100).toFixed(1)}%</div></div>
           </div>
-          <div>
-            <div className="flex justify-between text-xs text-muted mb-1">
-              <span>{info.graduated ? "Graduated to Uniswap v3" : "Bonding to graduation"}</span>
-              <span className="font-mono tabular">{progress.toFixed(0)}%</span>
+          {info.venue === "v3" ? (
+            <div className="flex items-center gap-2 rounded-lg border border-[#00C805]/30 bg-[#00C805]/5 px-3 py-2 text-xs text-[#00C805]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#00C805]" />
+              Live on Uniswap v3 · tradeable by any wallet or bot
             </div>
-            <div className="h-2 rounded-full bg-panel2 overflow-hidden">
-              <div className="h-full rounded-full bg-[#00C805]" style={{ width: `${progress}%` }} />
+          ) : (
+            <div>
+              <div className="flex justify-between text-xs text-muted mb-1">
+                <span>{info.graduated ? "Graduated to Uniswap v3" : "Bonding to graduation"}</span>
+                <span className="font-mono tabular">{progress.toFixed(0)}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-panel2 overflow-hidden">
+                <div className="h-full rounded-full bg-[#00C805]" style={{ width: `${progress}%` }} />
+              </div>
             </div>
-          </div>
+          )}
           <p className="text-xs text-muted leading-relaxed">
-            Native launch on Robinhood Chain via a fair bonding curve. It trades on the curve until it hits the graduation cap, then liquidity moves to Uniswap v3.
+            {info.venue === "v3"
+              ? "Launched straight into a Uniswap v3 pool on Robinhood Chain. Trades through the standard SwapRouter02, so any wallet, aggregator, or bot can buy it."
+              : "Native launch on Robinhood Chain via a fair bonding curve. It trades on the curve until it hits the graduation cap, then liquidity moves to Uniswap v3."}
           </p>
         </div>
 
@@ -210,7 +274,7 @@ export default function RobinhoodToken({ token }: { token: `0x${string}` }) {
 
           {!isConnected ? (
             <p className="text-sm text-muted text-center py-4">Connect a wallet to trade. Your wallet will switch to Robinhood Chain.</p>
-          ) : info.graduated ? (
+          ) : info.venue === "curve" && info.graduated ? (
             <p className="text-sm text-muted text-center py-4">Graduated — trade on Uniswap v3.</p>
           ) : tab === "buy" ? (
             <div className="space-y-2">
