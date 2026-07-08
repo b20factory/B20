@@ -28,16 +28,16 @@ export default function Home() {
       {/* hero */}
       <section className="grid lg:grid-cols-2 gap-12 items-center pt-16 sm:pt-24">
         <div className="animate-fade-up">
-          <span className="chip-on mb-6">Launchpad · Base + Robinhood Chain</span>
+          <span className="chip-on mb-6">Launchpad · B20 + Robinhood Chain</span>
           <h1 className="text-4xl sm:text-[3.4rem] font-semibold leading-[1.06] tracking-tight text-text">
             Launch <span className="text-brand">B20</span> tokens across two chains.
           </h1>
           <p className="mt-5 text-muted max-w-md text-lg leading-relaxed">
             Deploy a clean, admin-less token from a simple form or the command line —
-            native B20 on Base, or a fair bonding curve on Robinhood Chain.
+            native B20, or a fair bonding curve on Robinhood Chain.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-muted">
-            <span className="inline-flex items-center gap-1.5"><BaseLogo size={14} /> Native B20 · Base</span>
+            <span className="inline-flex items-center gap-1.5"><BaseLogo size={14} /> Native B20</span>
             <span className="inline-flex items-center gap-1.5"><RobinhoodLogo size={14} /> Bonding curve · Robinhood Chain</span>
           </div>
           <div className="mt-7 flex flex-wrap gap-3">
@@ -93,7 +93,7 @@ export default function Home() {
             <div className="card-hover h-full">
               <div className="flex items-center gap-2 mb-2">
                 <BaseLogo size={18} />
-                <h3 className="font-semibold text-text">Base</h3>
+                <h3 className="font-semibold text-text">B20</h3>
                 <span className="chip text-[10px] px-1.5 py-0 border-beryl/25 text-beryl/80">Native B20</span>
               </div>
               <p className="text-sm text-muted leading-relaxed">
@@ -180,7 +180,7 @@ launch \\
         <Link className="hover:text-text transition-colors" href="/feedback">Feedback</Link>
         <span className="ml-auto flex items-center gap-2">
           <span className={`chip inline-flex items-center gap-1 ${IS_TESTNET ? "border-warn/30 text-warn" : "border-beryl/25 text-beryl"}`}>
-            <BaseLogo size={11} />{IS_TESTNET ? "Base · testnet" : "Base · mainnet"}
+            <BaseLogo size={11} />{IS_TESTNET ? "B20 · testnet" : "B20 · mainnet"}
           </span>
           <span className="chip inline-flex items-center gap-1 border-[#00C805]/30 text-[#00C805]">
             <RobinhoodLogo size={11} />Robinhood · live

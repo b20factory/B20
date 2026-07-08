@@ -69,7 +69,7 @@ export default function LaunchForm() {
       <div className="card">
         <div className="h-sec mb-4">Choose a chain</div>
         <div className="flex gap-2 mb-4">
-          {chainBtn("base", "Base", <BaseLogo size={15} />)}
+          {chainBtn("base", "B20", <BaseLogo size={15} />)}
           {chainBtn("robinhood", "Robinhood Chain", <RobinhoodLogo size={15} />, !rhLive)}
         </div>
 
@@ -235,7 +235,7 @@ export default function LaunchForm() {
           )}
 
           <button className="btn-primary w-full py-3 text-base" disabled={!isConnected || !valid || busy || imgUploading} onClick={async () => { try { const tok = await launch({ ...f, ethUsd, venue }); router.push(`/token/${tok}`); } catch {} }}>
-            {!isConnected ? "Connect wallet to launch" : busy ? "Deploying…" : imgUploading ? "Uploading image…" : v3 ? "Launch v3 pool on Robinhood" : `Launch on ${rh ? "Robinhood Chain" : "Base"}`}
+            {!isConnected ? "Connect wallet to launch" : busy ? "Deploying…" : imgUploading ? "Uploading image…" : v3 ? "Launch v3 pool on Robinhood" : `Launch on ${rh ? "Robinhood Chain" : "B20"}`}
           </button>
           <p className="text-[11px] text-muted leading-relaxed">
             {v3
@@ -251,7 +251,7 @@ export default function LaunchForm() {
       <div className="console font-mono self-start">
         <div className="console-bar"><span className="console-dot" /><span className="console-dot" /><span className="console-dot" /><span className="ml-2 text-xs">deploy.log</span>{busy && <span className="ml-auto text-[11px] text-con-accent">running</span>}</div>
         <div className="p-4 text-[13px] leading-7 min-h-[300px]">
-          {steps.length === 0 && <div className="text-con-muted">waiting for launch on {rh ? "Robinhood Chain" : "Base"}…<span className="cursor ml-2" /></div>}
+          {steps.length === 0 && <div className="text-con-muted">waiting for launch on {rh ? "Robinhood Chain" : "B20"}…<span className="cursor ml-2" /></div>}
           {steps.map((s) => (
             <div key={s.id} className={s.status === "ok" ? "text-con-ok" : s.status === "err" ? "text-con-err" : s.status === "run" ? "text-con-text" : "text-con-muted/70"}>
               <span className="inline-block w-4">{s.status === "ok" ? "✓" : s.status === "err" ? "✕" : s.status === "run" ? "›" : "·"}</span>

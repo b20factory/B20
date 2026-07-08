@@ -63,7 +63,7 @@ function NavInner() {
             <span className="text-brand">B20</span>factory
           </span>
         </Link>
-        {IS_TESTNET && <span className="hidden sm:inline-flex chip border-warn/30 text-warn ml-1">Base testnet</span>}
+        {IS_TESTNET && <span className="hidden sm:inline-flex chip border-warn/30 text-warn ml-1">B20 testnet</span>}
 
         <nav className="hidden md:flex items-center gap-0.5 ml-6">
           {LINKS.map(([h, l]) => link(h, l))}
@@ -114,7 +114,7 @@ function NavInner() {
           {link("/feedback", "Feedback", true)}
           <div className="pt-2 px-1 flex items-center gap-2">
             <Link href="/app" className="btn-primary flex-1">Launch a token</Link>
-            {IS_TESTNET && <span className="chip border-warn/30 text-warn">Base testnet</span>}
+            {IS_TESTNET && <span className="chip border-warn/30 text-warn">B20 testnet</span>}
           </div>
         </nav>
       )}

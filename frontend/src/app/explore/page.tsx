@@ -321,7 +321,7 @@ export default function Explore() {
                 Two chains. One feed.
               </h1>
               <p className="mt-2 text-sm sm:text-[15px] text-muted max-w-xl leading-relaxed">
-                Every native B20 on Base and every launch on Robinhood Chain, live as they deploy.
+                Every native B20 and every launch on Robinhood Chain, live as they deploy.
               </p>
             </div>
             <div className="ml-auto flex items-center gap-2.5">
@@ -333,7 +333,7 @@ export default function Explore() {
           <div className="mt-7 grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: "Launches", value: loading ? "…" : stats.total.toLocaleString() },
-              { label: "On Base", value: loading ? "…" : stats.baseN.toLocaleString(), logo: "base" as const, status: IS_TESTNET ? { text: "Sepolia · testnet", tone: "warn" as const } : { text: "mainnet · live", tone: "live" as const } },
+              { label: "On B20", value: loading ? "…" : stats.baseN.toLocaleString(), logo: "base" as const, status: IS_TESTNET ? { text: "Sepolia · testnet", tone: "warn" as const } : { text: "mainnet · live", tone: "live" as const } },
               { label: "On Robinhood", value: loading ? "…" : stats.rhN.toLocaleString(), logo: "robinhood" as const, status: { text: "mainnet · live", tone: "live" as const } },
               { label: "Live trading", value: loading ? "…" : stats.live.toLocaleString() },
             ].map((s) => (
@@ -360,7 +360,7 @@ export default function Explore() {
         {/* chain filter + search */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           {chainTab("all", "All", loading ? undefined : stats.total)}
-          {chainTab("base", "Base", loading ? undefined : stats.baseN)}
+          {chainTab("base", "B20", loading ? undefined : stats.baseN)}
           {chainTab("robinhood", "Robinhood", loading ? undefined : stats.rhN)}
         </div>
 
@@ -401,7 +401,7 @@ function Ticker({ cards }: { cards: Card[] }) {
   // activity, no repeated "just launched" filler.
   const events = cards.length
     ? cards.map((c) => {
-        const chain = c.venue === "robinhood" ? "Robinhood" : "Base";
+        const chain = c.venue === "robinhood" ? "Robinhood" : "B20";
         if (c.trades > 0) return `$${c.symbol} ${pct(c.changePct ?? 0)} · ${fmtEth(c.volEth)} ETH vol`;
         return `$${c.symbol} · listed on ${chain}`;
       })

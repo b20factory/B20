@@ -30,11 +30,11 @@ export default function Docs() {
 
       <article className="prose-term max-w-3xl">
         <h1>B20factory docs</h1>
-        <p className="text-muted">The token launchpad for Base and Robinhood Chain.</p>
+        <p className="text-muted">The token launchpad for B20 and Robinhood Chain.</p>
 
         <h2 id="overview">Overview</h2>
         <p>
-          B20factory launches <code>B20</code> tokens — Base's native token standard from
+          B20factory launches <code>B20</code> tokens — the native token standard from
           the Beryl upgrade. Each launch produces a clean, admin-less token paired with a
           locked single-sided liquidity pool, so it is tradeable the moment it deploys.
         </p>
@@ -50,7 +50,7 @@ export default function Docs() {
         <p>B20factory runs two launch venues from one feed:</p>
         <ul>
           <li>
-            <strong>Base</strong> — native <code>B20</code> tokens via the Beryl precompile,
+            <strong>B20</strong> — native tokens via the Beryl precompile,
             paired single-sided on Uniswap v4 with locked liquidity.
           </li>
           <li>
@@ -62,7 +62,7 @@ export default function Docs() {
           </li>
         </ul>
         <p>
-          Every card on the feed carries the logo of its chain — the Base mark for B20
+          Every card on the feed carries the logo of its chain — the B20 mark for B20
           launches, the Robinhood feather for Robinhood Chain launches. Pick the venue
           with <code>--chain base</code> or <code>--chain robinhood</code>, or let the
           guided launch ask you.
@@ -70,9 +70,9 @@ export default function Docs() {
 
         <h2 id="b20">The B20 standard</h2>
         <p>
-          B20 token logic runs natively in the Base node as a Rust precompile rather than
+          B20 token logic runs natively in the chain node as a Rust precompile rather than
           as EVM bytecode. It is a full superset of ERC-20 — every wallet, DEX, and tool
-          works unchanged — while being cheaper and faster (Base targets ~50% cheaper
+          works unchanged — while being cheaper and faster (~50% cheaper
           transfers). B20factory deploys the <code>ASSET</code> variant.
         </p>
         <p>
@@ -128,7 +128,7 @@ export default function Docs() {
 
         <h2 id="terminal">Deploying from the terminal</h2>
         <p>
-          The terminal is the full deploy pipeline. The order is always the same, on Base
+          The terminal is the full deploy pipeline. The order is always the same, on B20
           or on Robinhood Chain:
         </p>
         <ul>
@@ -137,7 +137,7 @@ export default function Docs() {
           <li><strong>3. Deploy.</strong> Run <code>launch</code> for the guided flow (it asks chain, market type, name, socials), or pass flags for a one-shot. Set the token photo by pasting an image URL, a short bio, and your socials — X, GitHub, Telegram.</li>
         </ul>
         <p>Three ways to launch, one command:</p>
-        <pre><code>{`# 1) Native B20 on Base — dynamic fee band, single-sided v4 pool
+        <pre><code>{`# 1) Native B20 — dynamic fee band, single-sided v4 pool
 $ launch --chain base --name "Beryl Cat" --symbol BCAT \\
   --base 3 --max 5 --mc 10000 --image https://ex.com/cat.png
 

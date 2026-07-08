@@ -43,7 +43,7 @@ const RECV = ["ETH", "token", "both"];
 function prompt(step: Step, d: Draft): string {
   const rh = d.venue === "robinhood";
   switch (step) {
-    case "chain": return `where do we launch? \`base\` (native B20) or \`robinhood\` (Robinhood Chain)${rhLive ? "" : " — robinhood coming online soon"}. hit enter for base.`;
+    case "chain": return `where do we launch? \`b20\` (native B20 on Base) or \`robinhood\` (Robinhood Chain)${rhLive ? "" : " — robinhood coming online soon"}. hit enter for b20.`;
     case "rhtype": return "market type? `curve` (bonding curve, graduates to v3) or `v3` (Uniswap v3 pool now, buyable by bots). hit enter for curve.";
     case "name": return "what should the token be called?";
     case "symbol": return `nice — "${d.name}". ticker/symbol? (e.g. CAT, max 11 chars)`;
@@ -94,7 +94,7 @@ export default function DeployTerminal() {
   const { signMessageAsync } = useSignMessage();
   const { launch, busy } = useLaunch();
   const [lines, setLines] = useState<Line[]>([
-    { t: "bot", s: "gm. i'm beryl. type `launch` and i'll walk you through it — base or robinhood chain. `help` for raw commands." },
+    { t: "bot", s: "gm. i'm beryl. type `launch` and i'll walk you through it — B20 or Robinhood chain. `help` for raw commands." },
   ]);
   const [val, setVal] = useState("");
   const [wiz, setWiz] = useState<{ step: Step; draft: Draft } | null>(null);
@@ -167,7 +167,7 @@ export default function DeployTerminal() {
       x: d.x ?? "", github: d.github ?? "", telegram: d.telegram ?? "",
     };
     if (input.maxFeePct < input.baseFeePct) input.maxFeePct = input.baseFeePct;
-    push([{ t: "out", s: `› deploying on ${rh ? (v3 ? "Robinhood Chain (v3 pool)" : "Robinhood Chain (curve)") : "Base"}… (confirm in your wallet)` }]);
+    push([{ t: "out", s: `› deploying on ${rh ? (v3 ? "Robinhood Chain (v3 pool)" : "Robinhood Chain (curve)") : "B20"}… (confirm in your wallet)` }]);
     try {
       const tok = await launch(input);
       push([
@@ -212,7 +212,7 @@ export default function DeployTerminal() {
 
     switch (w.step) {
       case "chain": {
-        const v: VenueId = low.startsWith("rob") || low === "rh" ? "robinhood" : "base";
+        const v: VenueId = low.startsWith("rob") || low === "rh" ? "robinhood" : "base"; // b20/base/blank => base
         if (v === "robinhood" && !rhLive) { say("robinhood chain isn't live on b20factory yet — launching on `base` for now, or `cancel`."); return; }
         d.venue = v; next = v === "robinhood" ? "rhtype" : "name"; break;
       }
@@ -342,7 +342,7 @@ export default function DeployTerminal() {
       const isV3 = rhVenue === "v3";
       push([
         { t: "dim", s: `  [${venue}${isV3 ? "·v3" : ""}] ${isV3 ? "fee 1%" : `base ${input.baseFeePct}%${venue === "base" ? ` / max ${input.maxFeePct}%` : ""}`} · mc $${input.startMcUsd} · 20% vested${input.imageUrl ? " · image set" : ""}` },
-        { t: "out", s: `› deploying on ${venue === "robinhood" ? (isV3 ? "Robinhood Chain (v3 pool)" : "Robinhood Chain") : "Base"}… (confirm in wallet)` },
+        { t: "out", s: `› deploying on ${venue === "robinhood" ? (isV3 ? "Robinhood Chain (v3 pool)" : "Robinhood Chain") : "B20"}… (confirm in wallet)` },
       ]);
       try {
         const tok = await launch(input);
